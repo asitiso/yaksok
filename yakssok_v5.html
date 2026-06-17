@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>약쏙요약 💊</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+:root{
+  --p:#2563eb;--pl:#eff6ff;--pd:#1d4ed8;
+  --g:#16a34a;--gl:#f0fdf4;
+  --o:#ea580c;--r:#dc2626;--rl:#fef2f2;
+  --v:#7c3aed;--vl:#f5f3ff;
+  --g50:#f9fafb;--g100:#f3f4f6;--g200:#e5e7eb;--g300:#d1d5db;
+  --g400:#9ca3af;--g500:#6b7280;--g600:#4b5563;--g700:#374151;
+  --g800:#1f2937;--g900:#111827;
+  --rad:14px;
+  --sh:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);
+  --shm:0 4px 6px -1px rgba(0,0,0,.10),0 2px 4px -1px rgba(0,0,0,.06);
+  --shl:0 10px 15px -3px rgba(0,0,0,.10),0 4px 6px -2px rgba(0,0,0,.05);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
+  background:var(--g50);color:var(--g800);min-height:100vh;max-width:480px;margin:0 auto;overflow-x:hidden}
+
+/* ── 헤더 ── */
+.hdr{background:#fff;padding:13px 15px 10px;border-bottom:1px solid var(--g100);
+  position:sticky;top:0;z-index:100;box-shadow:var(--sh)}
+.hdr-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.logo{display:flex;align-items:center;gap:8px}
+.logo-ic{width:33px;height:33px;background:linear-gradient(135deg,#2563eb,#60a5fa);
+  border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.logo-txt{font-size:16px;font-weight:800;color:var(--g900);letter-spacing:-.5px}
+.logo-sub{font-size:9px;color:var(--g400);margin-top:1px}
+.hdr-btns{display:flex;gap:5px}
+.hbtn{background:var(--g100);border:none;border-radius:7px;padding:5px 8px;
+  font-size:11px;color:var(--g500);cursor:pointer;transition:all .15s;white-space:nowrap}
+.hbtn:hover{background:var(--g200);color:var(--g700)}
+.hbtn.on{background:var(--pl);color:var(--p)}
+.hbtn.fb-ok{background:#f0fdf4;color:#16a34a;cursor:default;pointer-events:none}
+.hbtn.sync-err{background:#fef2f2;color:#dc2626;cursor:default;pointer-events:none}
+.fb-badge{cursor:default;pointer-events:none;font-size:11px}
+
+.model-bar{display:flex;align-items:center;gap:5px;margin-bottom:8px}
+.mdot{width:6px;height:6px;border-radius:50%;background:var(--g300);transition:all .3s;flex-shrink:0}
+.mdot.active{background:#22c55e;box-shadow:0 0 0 2px #bbf7d0}
+.mdot.err{background:#ef4444}
+.mlabel{font-size:10px;color:var(--g400)}
+.mbadge{font-size:10px;font-weight:700;color:var(--p);background:var(--pl);border-radius:5px;padding:2px 6px}
+.mcnt{font-size:10px;color:var(--g400);margin-left:auto}
+
+.sw{position:relative}
+.si{width:100%;padding:9px 40px 9px 13px;border:1.5px solid var(--g200);border-radius:10px;
+  font-size:14px;background:var(--g50);color:var(--g800);outline:none;transition:border-color .15s}
+.si:focus{border-color:var(--p);background:#fff}
+.si::placeholder{color:var(--g400)}
+.si-ic{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:15px;color:var(--g400);pointer-events:none}
+.si-clr{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:14px;
+  color:var(--g400);cursor:pointer;background:none;border:none;display:none}
+
+/* ── 메인 영역 ── */
+.main{padding:13px 13px 96px}
+
+/* ── 입력 방식 버튼 ── */
+.im{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px}
+.im-btn{background:#fff;border:1.5px solid var(--g200);border-radius:var(--rad);
+  padding:13px 5px;display:flex;flex-direction:column;align-items:center;gap:6px;
+  cursor:pointer;transition:all .15s;box-shadow:var(--sh)}
+.im-btn:hover{border-color:var(--p);box-shadow:var(--shm);transform:translateY(-1px)}
+.im-btn:active{transform:translateY(0)}
+.im-ic{font-size:24px}
+.im-lbl{font-size:11px;font-weight:600;color:var(--g700);text-align:center;line-height:1.3}
+.im-btn.photo{border-color:#bfdbfe;background:var(--pl)}.im-btn.photo .im-lbl{color:var(--pd)}
+.im-btn.ingr{border-color:#bbf7d0;background:var(--gl)}.im-btn.ingr .im-lbl{color:var(--g)}
+
+.st{font-size:12px;font-weight:700;color:var(--g500);letter-spacing:.3px;
+  margin-bottom:8px;display:flex;align-items:center;gap:5px}
+.st::after{content:'';flex:1;height:1px;background:var(--g200)}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.chip{background:#fff;border:1.5px solid var(--g200);border-radius:20px;
+  padding:5px 12px;font-size:12px;font-weight:500;color:var(--g600);
+  cursor:pointer;transition:all .15s;box-shadow:var(--sh)}
+.chip:hover{border-color:var(--p);color:var(--p);background:var(--pl)}
+.chip.fav{border-color:#fde68a;background:#fffbeb;color:#92400e}
+
+/* ── 약효군 탭 화면 ── */
+.cat-view{display:none}
+.cat-header{background:linear-gradient(135deg,#7c3aed,#a78bfa);border-radius:var(--rad);
+  padding:16px 16px 14px;margin-bottom:14px;color:#fff}
+.cat-header-title{font-size:18px;font-weight:800;letter-spacing:-.3px;margin-bottom:3px}
+.cat-header-sub{font-size:12px;opacity:.8}
+
+/* 약효군 그리드 */
+.cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.cat-card{background:#fff;border-radius:12px;box-shadow:var(--sh);
+  padding:16px 14px;cursor:pointer;transition:all .15s;border:1.5px solid transparent;
+  display:flex;flex-direction:column;gap:6px}
+.cat-card:hover{border-color:var(--p);box-shadow:var(--shm);transform:translateY(-1px)}
+.cat-card:active{transform:translateY(0)}
+.cat-icon{font-size:28px}
+.cat-name{font-size:13px;font-weight:700;color:var(--g800)}
+.cat-desc{font-size:11px;color:var(--g500);line-height:1.4}
+.cat-count{font-size:10px;font-weight:600;background:var(--g100);
+  color:var(--g500);border-radius:10px;padding:2px 8px;display:inline-block;margin-top:2px}
+
+/* 카테고리별 색상 뱃지 */
+.cat-card[data-color="blue"]{border-top:3px solid #3b82f6}
+.cat-card[data-color="green"]{border-top:3px solid #22c55e}
+.cat-card[data-color="red"]{border-top:3px solid #ef4444}
+.cat-card[data-color="orange"]{border-top:3px solid #f97316}
+.cat-card[data-color="purple"]{border-top:3px solid #a855f7}
+.cat-card[data-color="pink"]{border-top:3px solid #ec4899}
+.cat-card[data-color="teal"]{border-top:3px solid #14b8a6}
+.cat-card[data-color="yellow"]{border-top:3px solid #eab308}
+.cat-card[data-color="indigo"]{border-top:3px solid #6366f1}
+.cat-card[data-color="brown"]{border-top:3px solid #92400e}
+
+/* 카테고리 상세 화면 */
+.cat-detail{display:none}
+.cat-detail-header{border-radius:var(--rad);padding:15px 15px 13px;margin-bottom:12px;color:#fff}
+.cat-detail-back{display:flex;align-items:center;gap:6px;font-size:12px;
+  opacity:.85;cursor:pointer;margin-bottom:10px;background:none;border:none;color:#fff}
+.cat-detail-back:hover{opacity:1}
+.cat-detail-icon{font-size:32px;margin-bottom:4px}
+.cat-detail-name{font-size:20px;font-weight:800;letter-spacing:-.3px}
+.cat-detail-sub{font-size:12px;opacity:.8;margin-top:3px}
+
+/* 증상 설명 박스 */
+.sym-explain{background:#fff;border-radius:12px;box-shadow:var(--sh);
+  padding:13px 15px;margin-bottom:12px}
+.sym-explain-title{font-size:11px;font-weight:700;color:var(--g400);
+  letter-spacing:.5px;margin-bottom:8px;text-transform:uppercase}
+.sym-tags{display:flex;flex-wrap:wrap;gap:6px}
+.sym-tag{background:var(--gl);border:1.5px solid #bbf7d0;border-radius:20px;
+  padding:4px 11px;font-size:12px;font-weight:600;color:var(--g)}
+
+/* 제품 목록 */
+.prod-list-title{font-size:12px;font-weight:700;color:var(--g500);
+  margin-bottom:9px;display:flex;align-items:center;gap:5px}
+.prod-list-title::after{content:'';flex:1;height:1px;background:var(--g200)}
+.prod-item{background:#fff;border-radius:11px;box-shadow:var(--sh);
+  padding:13px 14px;margin-bottom:8px;cursor:pointer;
+  display:flex;align-items:center;justify-content:space-between;
+  border:1.5px solid transparent;transition:all .15s}
+.prod-item:hover{border-color:var(--p);box-shadow:var(--shm)}
+.prod-item:active{background:var(--pl)}
+.prod-item-left{display:flex;flex-direction:column;gap:3px}
+.prod-item-name{font-size:14px;font-weight:700;color:var(--g800)}
+.prod-item-comp{font-size:11px;color:var(--g400)}
+.prod-item-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.prod-tag{font-size:10px;background:var(--pl);color:var(--p);
+  border-radius:8px;padding:2px 7px;font-weight:600}
+.prod-arrow{font-size:16px;color:var(--g300);flex-shrink:0}
+
+/* ── 카드 / 후보 / 결과 (기존과 동일) ── */
+.card{background:#fff;border-radius:var(--rad);box-shadow:var(--sh);overflow:hidden;margin-bottom:10px}
+.cand-list{display:none}
+.cand-item{padding:12px 14px;border-bottom:1px solid var(--g100);cursor:pointer;
+  display:flex;align-items:center;justify-content:space-between;transition:background .1s}
+.cand-item:last-child{border-bottom:none}
+.cand-item:hover{background:var(--g50)}
+.cand-item:active{background:var(--pl)}
+.cand-nm{font-size:14px;font-weight:600;color:var(--g800)}
+.cand-sub{font-size:11px;color:var(--g400);margin-top:1px}
+.cand-arr{font-size:14px;color:var(--g300)}
+
+.rh{background:linear-gradient(135deg,#2563eb 0%,#60a5fa 100%);padding:17px 17px 13px;color:#fff}
+.rb-badge{display:inline-block;background:rgba(255,255,255,.25);border-radius:5px;
+  padding:2px 8px;font-size:10px;font-weight:600;margin-bottom:5px;letter-spacing:.3px}
+.rn{font-size:21px;font-weight:800;letter-spacing:-.5px;margin-bottom:2px}
+.rc{font-size:11px;opacity:.85}
+.rfav{float:right;background:rgba(255,255,255,.2);border:1.5px solid rgba(255,255,255,.4);
+  border-radius:7px;padding:4px 8px;color:#fff;font-size:11px;cursor:pointer;transition:all .15s;margin-top:-2px}
+.rfav:hover{background:rgba(255,255,255,.35)}
+.rfav.on{background:#fbbf24;border-color:#f59e0b;color:#78350f}
+
+.rblk{padding:13px 15px;border-bottom:1px solid var(--g100)}
+.rblk:last-child{border-bottom:none}
+.rblk-t{font-size:11px;font-weight:700;color:var(--g400);letter-spacing:.5px;
+  text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:4px}
+.rblk-t span{font-size:13px}
+
+.uc-list{display:flex;flex-direction:column;gap:6px}
+.uc-item{display:flex;align-items:flex-start;gap:8px;padding:9px 10px;
+  background:var(--pl);border-radius:8px;border-left:3px solid var(--p)}
+.uc-n{font-size:11px;font-weight:800;color:var(--p);min-width:15px;margin-top:1px}
+.uc-t{font-size:14px;font-weight:500;color:var(--g800);line-height:1.4}
+
+.sym-chips{display:flex;flex-wrap:wrap;gap:6px}
+.sym-chip{background:var(--gl);border:1.5px solid #bbf7d0;border-radius:20px;
+  padding:5px 12px;font-size:12px;font-weight:600;color:var(--g)}
+
+.staff-box{background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1.5px solid #fde68a;
+  border-radius:10px;padding:12px 14px;font-size:13px;color:var(--g700);line-height:1.7;position:relative}
+.staff-box::before{content:'"';font-size:32px;font-weight:800;color:#fbbf24;
+  position:absolute;top:4px;left:10px;line-height:1}
+.staff-txt{padding-left:20px;font-style:italic}
+
+.caut-list{display:flex;flex-direction:column;gap:5px}
+.caut-item{display:flex;align-items:flex-start;gap:6px;font-size:12px;color:var(--g600);line-height:1.5}
+.caut-dot{color:var(--o);font-size:12px;margin-top:1px;flex-shrink:0}
+
+.sim-chips{display:flex;flex-wrap:wrap;gap:6px}
+.sim-chip{background:var(--vl);border:1.5px solid #ddd6fe;border-radius:20px;
+  padding:5px 12px;font-size:12px;font-weight:600;color:var(--v);cursor:pointer;transition:all .15s}
+.sim-chip:hover{background:#ede9fe}
+
+/* ── 로딩 ── */
+.ld{display:none;background:#fff;border-radius:var(--rad);padding:40px 20px;text-align:center;box-shadow:var(--sh)}
+.ld-sp{width:38px;height:38px;border:4px solid var(--g100);border-top-color:var(--p);
+  border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 13px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ld-txt{font-size:13px;font-weight:600;color:var(--g500)}
+.ld-sub{font-size:11px;color:var(--g400);margin-top:4px}
+.ld-mdl{font-size:11px;color:var(--p);margin-top:7px;font-weight:600}
+
+/* ── 업로드 모달 ── */
+.um{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-end;justify-content:center}
+.um.open{display:flex}
+.um-sh{background:#fff;border-radius:20px 20px 0 0;padding:17px 17px 36px;width:100%;max-width:480px;animation:slideUp .25s ease}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.um-hnd{width:30px;height:4px;background:var(--g200);border-radius:2px;margin:0 auto 16px}
+.um-ttl{font-size:14px;font-weight:700;color:var(--g800);margin-bottom:13px}
+.um-area{border:2px dashed var(--g200);border-radius:var(--rad);padding:26px 16px;text-align:center;cursor:pointer;transition:border-color .15s;margin-bottom:12px}
+.um-area:hover{border-color:var(--p);background:var(--pl)}
+.um-ai{font-size:34px;margin-bottom:7px}
+.um-at{font-size:13px;color:var(--g500);font-weight:500}
+.um-close{width:100%;padding:11px;background:var(--g100);border:none;border-radius:9px;font-size:13px;font-weight:600;color:var(--g500);cursor:pointer}
+.img-prev{width:100%;max-height:160px;object-fit:contain;border-radius:9px;margin-bottom:9px;display:none}
+
+/* ── API / Firebase 모달 공통 ── */
+.modal-wrap{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);
+  z-index:300;align-items:center;justify-content:center;padding:16px;overflow-y:auto}
+.modal-wrap.open{display:flex}
+.modal-sh{background:#fff;border-radius:18px;padding:20px 17px 24px;
+  width:100%;max-width:380px;box-shadow:var(--shl);margin:auto}
+.modal-ttl{font-size:15px;font-weight:700;color:var(--g800);margin-bottom:5px}
+.modal-sub{font-size:12px;color:var(--g500);margin-bottom:13px;line-height:1.6}
+.modal-label{font-size:11px;font-weight:700;color:var(--g500);margin-bottom:3px;margin-top:9px}
+.modal-inp{width:100%;padding:9px 12px;border:1.5px solid var(--g200);border-radius:8px;
+  font-size:12px;color:var(--g800);outline:none;font-family:monospace;margin-bottom:0}
+.modal-inp:focus{border-color:var(--p)}
+.modal-btn{width:100%;padding:11px;color:#fff;border:none;border-radius:9px;
+  font-size:13px;font-weight:700;cursor:pointer;margin-top:12px}
+.modal-btn.primary{background:var(--p)}.modal-btn.primary:hover{background:var(--pd)}
+.modal-btn.orange{background:#f97316}.modal-btn.orange:hover{background:#ea580c}
+.modal-btn.gray{background:var(--g100);color:var(--g500);margin-top:7px}
+.modal-status{font-size:12px;margin-top:8px;padding:7px 11px;border-radius:7px;display:none}
+.modal-status.ok{background:#f0fdf4;color:#16a34a;display:block}
+.modal-status.err{background:#fef2f2;color:#dc2626;display:block}
+
+/* ── 에러 ── */
+.err-card{display:none;background:var(--rl);border:1.5px solid #fecaca;
+  border-radius:var(--rad);padding:13px 15px;margin-bottom:10px}
+.err-ttl{font-size:13px;font-weight:700;color:var(--r);margin-bottom:4px}
+.err-txt{font-size:12px;color:#b91c1c;line-height:1.5}
+
+/* ── 하단 탭 ── */
+.btab{position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+  width:100%;max-width:480px;background:#fff;border-top:1px solid var(--g200);
+  display:flex;padding:6px 0 20px;z-index:100}
+.ti{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+  cursor:pointer;border:none;background:none;padding:5px 0;transition:opacity .15s}
+.ti-ic{font-size:20px}
+.ti-lb{font-size:9px;font-weight:600;color:var(--g400)}
+.ti.on .ti-lb{color:var(--p)}
+.ti.on .ti-ic{filter:drop-shadow(0 0 3px rgba(37,99,235,.3))}
+
+.empty-hint{font-size:12px;color:var(--g400)}
+
+/* ── 증상 검색 뷰 ── */
+.sym-view{display:none}
+.sym-header{background:linear-gradient(135deg,#059669,#34d399);border-radius:var(--rad);
+  padding:16px 16px 14px;margin-bottom:14px;color:#fff}
+.sym-header-title{font-size:18px;font-weight:800;letter-spacing:-.3px;margin-bottom:3px}
+.sym-header-sub{font-size:12px;opacity:.85}
+
+/* 증상 검색 입력창 */
+.sym-search-wrap{position:relative;margin-bottom:14px}
+.sym-search-inp{width:100%;padding:11px 42px 11px 40px;border:1.5px solid var(--g200);
+  border-radius:11px;font-size:14px;background:#fff;color:var(--g800);
+  outline:none;transition:border-color .15s;box-shadow:var(--sh)}
+.sym-search-inp:focus{border-color:#059669}
+.sym-search-inp::placeholder{color:var(--g400)}
+.sym-search-left{position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:16px;pointer-events:none}
+.sym-search-clr{position:absolute;right:13px;top:50%;transform:translateY(-50%);
+  font-size:14px;color:var(--g400);cursor:pointer;background:none;border:none;display:none}
+
+/* 증상 카테고리 바 */
+.sym-cat-bar{display:flex;gap:7px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px;
+  scrollbar-width:none;-ms-overflow-style:none}
+.sym-cat-bar::-webkit-scrollbar{display:none}
+.sym-cat-chip{flex-shrink:0;background:#fff;border:1.5px solid var(--g200);border-radius:20px;
+  padding:5px 12px;font-size:12px;font-weight:600;color:var(--g600);
+  cursor:pointer;transition:all .15s;white-space:nowrap;box-shadow:var(--sh)}
+.sym-cat-chip:hover{border-color:#059669;color:#059669}
+.sym-cat-chip.on{background:#ecfdf5;border-color:#059669;color:#059669}
+
+/* 증상 버튼 그리드 */
+.sym-btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.sym-btn{background:#fff;border:1.5px solid var(--g200);border-radius:11px;
+  padding:12px 10px;text-align:left;cursor:pointer;transition:all .15s;
+  box-shadow:var(--sh);display:flex;align-items:center;gap:8px}
+.sym-btn:hover{border-color:#059669;box-shadow:var(--shm);transform:translateY(-1px)}
+.sym-btn:active{transform:translateY(0);background:#ecfdf5}
+.sym-btn-ic{font-size:20px;flex-shrink:0}
+.sym-btn-txt{font-size:13px;font-weight:600;color:var(--g700);line-height:1.3}
+
+/* 증상 검색 결과 */
+.sym-result-view{display:none}
+.sym-result-header{background:linear-gradient(135deg,#059669,#34d399);
+  border-radius:var(--rad);padding:14px 15px 12px;margin-bottom:12px;color:#fff}
+.sym-result-back{display:flex;align-items:center;gap:5px;font-size:12px;
+  opacity:.85;cursor:pointer;margin-bottom:8px;background:none;border:none;color:#fff;padding:0}
+.sym-result-query{font-size:11px;opacity:.8;margin-bottom:4px}
+.sym-result-title{font-size:17px;font-weight:800;letter-spacing:-.3px}
+
+/* AI 분석 결과 카드 (증상→제품) */
+.sym-ai-card{background:#fff;border-radius:12px;box-shadow:var(--sh);
+  margin-bottom:10px;overflow:hidden}
+.sym-ai-card-header{background:linear-gradient(135deg,#ecfdf5,#d1fae5);
+  padding:12px 14px;border-bottom:1px solid #a7f3d0;
+  display:flex;align-items:center;justify-content:space-between}
+.sym-ai-rank{width:24px;height:24px;background:#059669;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:800;color:#fff;flex-shrink:0}
+.sym-ai-name{font-size:15px;font-weight:800;color:var(--g800);margin-left:8px;flex:1}
+.sym-ai-cat{font-size:10px;font-weight:600;background:#059669;color:#fff;
+  border-radius:6px;padding:2px 7px}
+.sym-ai-body{padding:12px 14px}
+.sym-ai-reason{font-size:13px;color:var(--g700);line-height:1.6;margin-bottom:10px}
+.sym-ai-detail-btn{width:100%;padding:9px;background:var(--pl);border:1.5px solid #bfdbfe;
+  border-radius:8px;font-size:12px;font-weight:700;color:var(--p);
+  cursor:pointer;transition:all .15s}
+.sym-ai-detail-btn:hover{background:#dbeafe}
+
+/* 증상 검색 — 빠른 증상 태그 */
+.quick-sym-section{margin-bottom:16px}
+.quick-sym-tags{display:flex;flex-wrap:wrap;gap:7px}
+.quick-sym-tag{background:#ecfdf5;border:1.5px solid #6ee7b7;border-radius:20px;
+  padding:6px 13px;font-size:13px;font-weight:600;color:#059669;
+  cursor:pointer;transition:all .15s}
+.quick-sym-tag:hover{background:#d1fae5;transform:translateY(-1px)}
+.quick-sym-tag:active{transform:translateY(0)}
+</style>
+</head>
+<body>
+
+<!-- 헤더 -->
+<div class="hdr">
+  <div class="hdr-top">
+    <div class="logo">
+      <div class="logo-ic">💊</div>
+      <div>
+        <div class="logo-txt">약쏙요약</div>
+        <div class="logo-sub">OTC 직원 학습 도우미</div>
+      </div>
+    </div>
+    <div class="hdr-btns">
+      <div class="hbtn fb-badge" id="fbBtn">🔥 연결 중...</div>
+      <button class="hbtn" id="apiBtn" onclick="openApiModal()">🔑 API키</button>
+    </div>
+  </div>
+  <div class="model-bar" id="modelBar">
+    <div class="mdot" id="md0"></div><div class="mdot" id="md1"></div>
+    <div class="mdot" id="md2"></div><div class="mdot" id="md3"></div>
+    <div class="mlabel">모델:</div>
+    <div class="mbadge" id="modelBadge">대기중</div>
+    <div class="mcnt" id="mcnt"></div>
+  </div>
+  <div class="sw">
+    <input class="si" id="si" placeholder="제품명 검색 (겔포스, 타이레놀...)"
+      oninput="onSiInput(this.value)" onkeydown="if(event.key==='Enter')doSearch()">
+    <span class="si-ic" id="siIc">🔍</span>
+    <button class="si-clr" id="siClr" onclick="clearSi()">✕</button>
+  </div>
+</div>
+
+<!-- 메인 -->
+<div class="main" id="mainWrap">
+
+  <!-- ① 홈 뷰 -->
+  <div id="homeView">
+    <div class="im">
+      <button class="im-btn photo" onclick="openUpload('product')">
+        <div class="im-ic">📷</div><div class="im-lbl">제품<br>사진</div>
+      </button>
+      <button class="im-btn ingr" onclick="openUpload('ingredient')">
+        <div class="im-ic">📄</div><div class="im-lbl">성분표<br>사진</div>
+      </button>
+      <button class="im-btn" onclick="focusSearch()">
+        <div class="im-ic">🔍</div><div class="im-lbl">제품명<br>검색</div>
+      </button>
+    </div>
+    <div class="st">최근 조회</div>
+    <div class="chips" id="recentChips"><span class="empty-hint">아직 조회한 제품이 없어요</span></div>
+    <div class="st" id="favSt" style="display:none">즐겨찾기 ⭐</div>
+    <div class="chips" id="favChips"></div>
+  </div>
+
+  <!-- ② 약효군 탭 뷰 -->
+  <div class="cat-view" id="catView">
+    <div class="cat-header">
+      <div class="cat-header-title">📚 약효군별 모아보기</div>
+      <div class="cat-header-sub">증상에 맞는 약을 카테고리로 빠르게 찾아보세요</div>
+    </div>
+    <div class="cat-grid" id="catGrid"></div>
+  </div>
+
+  <!-- ③ 카테고리 상세 뷰 -->
+  <div class="cat-detail" id="catDetail"></div>
+
+  <!-- ④ 증상 검색 뷰 -->
+  <div class="sym-view" id="symView">
+    <div class="sym-header">
+      <div class="sym-header-title">🩺 증상으로 찾기</div>
+      <div class="sym-header-sub">손님이 말하는 증상을 입력하거나 선택하세요</div>
+    </div>
+
+    <!-- 증상 직접 입력 -->
+    <div class="sym-search-wrap">
+      <span class="sym-search-left">🔍</span>
+      <input class="sym-search-inp" id="symInp"
+        placeholder="증상 입력 (예: 속쓰림, 두통, 기침...)"
+        oninput="onSymInput(this.value)"
+        onkeydown="if(event.key==='Enter')doSymSearch()">
+      <button class="sym-search-clr" id="symClr" onclick="clearSymInp()">✕</button>
+    </div>
+
+    <!-- 빠른 증상 태그 (자주 쓰는 것) -->
+    <div class="quick-sym-section">
+      <div class="st">자주 찾는 증상</div>
+      <div class="quick-sym-tags" id="quickSymTags"></div>
+    </div>
+
+    <!-- 부위별 카테고리 필터 -->
+    <div class="sym-cat-bar" id="symCatBar"></div>
+
+    <!-- 증상 버튼 그리드 -->
+    <div class="st" id="symGridTitle">전체 증상</div>
+    <div class="sym-btn-grid" id="symBtnGrid"></div>
+  </div>
+
+  <!-- ⑤ 증상 검색 결과 뷰 -->
+  <div class="sym-result-view" id="symResultView">
+    <div class="sym-result-header">
+      <button class="sym-result-back" onclick="showTab('sym')">← 증상 목록</button>
+      <div class="sym-result-query" id="symResultQuery"></div>
+      <div class="sym-result-title" id="symResultTitle"></div>
+    </div>
+    <div id="symResultBody"></div>
+  </div>
+
+  <!-- ④ 로딩 -->
+  <div class="ld" id="ldCard">
+    <div class="ld-sp"></div>
+    <div class="ld-txt" id="ldTxt">AI 분석 중...</div>
+    <div class="ld-sub" id="ldSub">소비자 언어로 변환하고 있어요</div>
+    <div class="ld-mdl" id="ldMdl"></div>
+  </div>
+
+  <!-- ⑤ 후보 목록 -->
+  <div class="card cand-list" id="candList"></div>
+
+  <!-- ⑥ 에러 -->
+  <div class="err-card" id="errCard">
+    <div class="err-ttl">⚠️ 분석 실패</div>
+    <div class="err-txt" id="errTxt"></div>
+  </div>
+
+  <!-- ⑦ 결과 -->
+  <div class="card" id="resCard" style="display:none">
+    <div class="rh">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between">
+        <div>
+          <div class="rb-badge" id="resBadge">OTC 의약품</div>
+          <div class="rn" id="resName">-</div>
+          <div class="rc" id="resComp">주성분: -</div>
+        </div>
+        <button class="rfav" id="favBtn" onclick="toggleFav()">☆ 저장</button>
+      </div>
+    </div>
+    <div class="rblk">
+      <div class="rblk-t"><span>💡</span>이럴 때 찾는 약</div>
+      <div class="uc-list" id="ucList"></div>
+    </div>
+    <div class="rblk">
+      <div class="rblk-t"><span>🗣️</span>손님이 이렇게 말해요</div>
+      <div class="sym-chips" id="symChips"></div>
+    </div>
+    <div class="rblk">
+      <div class="rblk-t"><span>💬</span>직원 추천 멘트</div>
+      <div class="staff-box"><div class="staff-txt" id="staffTxt"></div></div>
+    </div>
+    <div class="rblk">
+      <div class="rblk-t"><span>⚠️</span>주의사항</div>
+      <div class="caut-list" id="cautList"></div>
+    </div>
+    <div class="rblk" id="simBlk">
+      <div class="rblk-t"><span>🔀</span>비슷한 제품</div>
+      <div class="sim-chips" id="simChips"></div>
+    </div>
+    <div class="rblk" style="padding-top:10px;padding-bottom:10px">
+      <button id="resBackBtn" onclick="goBack()"
+        style="width:100%;padding:10px;background:var(--g100);border:none;
+        border-radius:8px;font-size:13px;font-weight:600;color:var(--g500);cursor:pointer">
+        ← 뒤로
+      </button>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- 하단 탭 -->
+<div class="btab">
+  <button class="ti on" id="tab0" onclick="showTab('home')">
+    <span class="ti-ic">🏠</span><span class="ti-lb">홈</span></button>
+  <button class="ti" id="tab1" onclick="focusSearch();showTab('home')">
+    <span class="ti-ic">🔍</span><span class="ti-lb">제품검색</span></button>
+  <button class="ti" id="tab2" onclick="openUpload('product')">
+    <span class="ti-ic">📷</span><span class="ti-lb">사진분석</span></button>
+  <button class="ti" id="tab3" onclick="showTab('sym')">
+    <span class="ti-ic">🩺</span><span class="ti-lb">증상검색</span></button>
+  <button class="ti" id="tab4" onclick="showTab('cat')">
+    <span class="ti-ic">📚</span><span class="ti-lb">약효군</span></button>
+</div>
+
+<!-- 업로드 모달 -->
+<div class="um" id="umModal">
+  <div class="um-sh">
+    <div class="um-hnd"></div>
+    <div class="um-ttl" id="umTtl">📷 제품 사진 분석</div>
+    <img id="imgPrev" class="img-prev" alt="미리보기">
+    <div class="um-area" onclick="document.getElementById('fileInp').click()">
+      <div class="um-ai">📁</div>
+      <div class="um-at">사진 선택 또는 카메라 촬영</div>
+    </div>
+    <input type="file" id="fileInp" accept="image/*" capture="environment"
+      style="display:none" onchange="onFileSelected(event)">
+    <button class="um-close" onclick="closeUpload()">닫기</button>
+  </div>
+</div>
+
+<!-- API 키 모달 -->
+<div class="modal-wrap" id="amModal">
+  <div class="modal-sh">
+    <div class="modal-ttl">🔑 Gemini API 키 설정</div>
+    <div class="modal-sub">AQ- 로 시작하는 Gemini API 키를 입력하세요.<br>키는 localStorage에 자동 저장됩니다.</div>
+    <input class="modal-inp" id="amInp" type="password" placeholder="AQ...">
+    <button class="modal-btn primary" onclick="saveApiKey()">저장</button>
+    <button class="modal-btn gray" onclick="closeApiModal()">취소</button>
+  </div>
+</div>
+
+
+
+<script>
+// ═══════════════════════════════════════════════════
+//  약효군 데이터 (대표 제품 + 손님 증상 표현 포함)
+// ═══════════════════════════════════════════════════
+const CATEGORIES = [
+  {
+    id:'digestive', icon:'🫁', name:'소화제 · 위장약', color:'blue',
+    desc:'속쓰림, 소화불량, 위산 역류',
+    symptoms:['속이 쓰려요','소화가 안돼요','배가 더부룩해요','신물이 올라와요','과식했어요','명치가 아파요'],
+    products:[
+      {name:'겔포스M',     comp:'인산알루미늄겔',    tags:['속쓰림','위산중화']},
+      {name:'겔포스L',     comp:'탄산칼슘·수산화마그네슘', tags:['속쓰림','위산중화']},
+      {name:'개비스콘',    comp:'알긴산나트륨',      tags:['역류','속쓰림']},
+      {name:'닥터베아제',  comp:'판크레아틴',        tags:['소화불량','소화효소']},
+      {name:'훼스탈골드',  comp:'판크레라틴',        tags:['소화불량']},
+      {name:'베나치오',    comp:'탄산수소나트륨',    tags:['속쓰림','가스']},
+      {name:'알마겔에프',  comp:'수산화알루미늄겔',  tags:['속쓰림','위산중화']},
+    ]
+  },
+  {
+    id:'pain', icon:'🤕', name:'해열진통제', color:'red',
+    desc:'두통, 발열, 근육통, 생리통',
+    symptoms:['머리가 아파요','열이 나요','몸살이에요','이가 아파요','생리통이에요','근육이 아파요'],
+    products:[
+      {name:'타이레놀',    comp:'아세트아미노펜 500mg', tags:['해열','진통']},
+      {name:'타이레놀이알',comp:'아세트아미노펜 650mg', tags:['해열','진통','서방형']},
+      {name:'부루펜',      comp:'이부프로펜 200mg',   tags:['해열','소염진통']},
+      {name:'애드빌',      comp:'이부프로펜 200mg',   tags:['해열','소염진통']},
+      {name:'펜잘큐',      comp:'아세트아미노펜+카페인',tags:['두통','복합']},
+      {name:'게보린',      comp:'아세트아미노펜+이소프로필',tags:['두통','복합']},
+      {name:'낙센에프',    comp:'나프록센 220mg',     tags:['소염진통','생리통']},
+    ]
+  },
+  {
+    id:'cold', icon:'🤧', name:'감기약', color:'orange',
+    desc:'콧물, 코막힘, 기침, 가래',
+    symptoms:['콧물이 나요','코가 막혀요','기침이 나요','가래가 껴요','감기 걸린 것 같아요','목이 간지러워요'],
+    products:[
+      {name:'판콜에이',    comp:'아세트아미노펜+항히스타민', tags:['종합감기','콧물']},
+      {name:'판피린큐',    comp:'아세트아미노펜+항히스타민', tags:['종합감기','콧물']},
+      {name:'콜대원',      comp:'아세트아미노펜+구아이페네신',tags:['기침','가래','감기']},
+      {name:'테라플루',    comp:'아세트아미노펜+항히스타민', tags:['종합감기','드링크형']},
+      {name:'코대원에프',  comp:'덱스트로메토르판',   tags:['기침','진해']},
+      {name:'뮤코라제',    comp:'아세틸시스테인',     tags:['가래','기관지']},
+      {name:'용각산쿨',    comp:'생약성분',           tags:['기침','목']},
+    ]
+  },
+  {
+    id:'wound', icon:'🩹', name:'상처 · 피부약', color:'pink',
+    desc:'상처, 감염 예방, 화상, 습진',
+    symptoms:['상처가 났어요','긁혔어요','베였어요','덧날까 걱정돼요','고름이 생겼어요','화상을 입었어요'],
+    products:[
+      {name:'후시딘',      comp:'푸시드산',          tags:['항균','상처']},
+      {name:'마데카솔',    comp:'센텔라아시아티카',   tags:['상처치유','흉터']},
+      {name:'복합마데카솔',comp:'센텔라+네오마이신',  tags:['항균','상처치유']},
+      {name:'에스로반',    comp:'무피로신',           tags:['항균','농가진']},
+      {name:'후시딘하이드로크림',comp:'푸시드산+히드로코르티손',tags:['가려움','항균']},
+      {name:'덱스판테놀크림',comp:'판테놀',           tags:['화상','건조']},
+      {name:'실크론',      comp:'은나노',             tags:['화상','드레싱']},
+    ]
+  },
+  {
+    id:'itch', icon:'🦟', name:'가려움 · 벌레물림', color:'green',
+    desc:'모기, 벌레, 두드러기, 알레르기',
+    symptoms:['모기에 물렸어요','벌레에 쏘였어요','가려워요','두드러기가 났어요','알레르기가 있어요'],
+    products:[
+      {name:'버물리',      comp:'캄파·멘톨',          tags:['벌레물림','가려움']},
+      {name:'물파스',      comp:'살리실산메틸',       tags:['벌레물림','근육통']},
+      {name:'이카리딘케어',comp:'이카리딘',           tags:['모기기피']},
+      {name:'오프',        comp:'DEET',              tags:['모기기피','강력']},
+      {name:'지르텍',      comp:'세티리진',           tags:['알레르기','두드러기']},
+      {name:'클라리틴',    comp:'로라타딘',           tags:['알레르기','비염']},
+      {name:'알러콜',      comp:'클로르페니라민',     tags:['알레르기','졸음주의']},
+    ]
+  },
+  {
+    id:'eye', icon:'👁️', name:'눈약 · 안약', color:'teal',
+    desc:'눈 충혈, 건조함, 눈물, 결막염',
+    symptoms:['눈이 빨개요','눈이 건조해요','눈이 가려워요','눈물이 나요','눈이 뻑뻑해요','눈에 이물감이 있어요'],
+    products:[
+      {name:'아이봉',      comp:'식염수',            tags:['세척','이물질']},
+      {name:'티어린',      comp:'히알루론산나트륨',   tags:['건조','인공눈물']},
+      {name:'리프레시',    comp:'카복시메틸셀룰로스', tags:['건조','인공눈물']},
+      {name:'알레르기아이',comp:'케토티펜',           tags:['알레르기','가려움']},
+      {name:'나조올',      comp:'나파졸린',           tags:['충혈','결막염']},
+    ]
+  },
+  {
+    id:'vitamin', icon:'💊', name:'비타민 · 영양제', color:'yellow',
+    desc:'피로회복, 면역, 종합비타민',
+    symptoms:['피로해요','면역이 약해요','비타민이 부족해요','활력이 없어요','영양 보충이 필요해요'],
+    products:[
+      {name:'임팩타민',    comp:'비타민B군복합',      tags:['피로','에너지']},
+      {name:'센트룸',      comp:'종합비타민미네랄',   tags:['종합','면역']},
+      {name:'고려은단비타민C',comp:'아스코르브산 1000mg',tags:['면역','피부']},
+      {name:'비타민D3',    comp:'콜레칼시페롤',       tags:['뼈','면역']},
+      {name:'오메가3',     comp:'EPA+DHA',           tags:['혈행','뇌건강']},
+      {name:'아연',        comp:'아연',               tags:['면역','피부']},
+    ]
+  },
+  {
+    id:'diarrhea', icon:'🚽', name:'지사제 · 정장제', color:'brown',
+    desc:'설사, 장 트러블, 복통',
+    symptoms:['설사가 나요','배가 자주 아파요','장이 안좋아요','화장실을 자주 가요','복통이 있어요'],
+    products:[
+      {name:'스멕타',      comp:'디옥타헤드랄스멕타이트',tags:['설사','장흡착']},
+      {name:'정로환',      comp:'생약복합',           tags:['설사','장염']},
+      {name:'지사토',      comp:'로페라마이드',       tags:['설사','지사']},
+      {name:'듀오락베이비',comp:'유산균',             tags:['유산균','장건강']},
+      {name:'장대원',      comp:'유산균복합',         tags:['장건강','유산균']},
+    ]
+  },
+  {
+    id:'muscle', icon:'💪', name:'근육통 · 파스', color:'indigo',
+    desc:'근육통, 관절통, 타박상',
+    symptoms:['근육이 뭉쳤어요','허리가 아파요','어깨가 아파요','삐었어요','타박상이 있어요','관절이 아파요'],
+    products:[
+      {name:'제일쿨파스',  comp:'살리실산메틸+멘톨',  tags:['근육통','냉파스']},
+      {name:'신신파스아렉스',comp:'살리실산에틸렌글리콜',tags:['근육통','관절']},
+      {name:'케토톱',      comp:'케토프로펜',         tags:['소염','관절통']},
+      {name:'이돔파스',    comp:'인도메타신',         tags:['소염','근육통']},
+      {name:'볼타렌젤',    comp:'디클로페낙나트륨',   tags:['소염','관절']},
+      {name:'애니클',      comp:'멘톨+살리실산',      tags:['스프레이형','근육통']},
+    ]
+  },
+  {
+    id:'constipation', icon:'💩', name:'변비약', color:'purple',
+    desc:'변비, 배변 불규칙',
+    symptoms:['변비예요','화장실을 못 가요','대변이 딱딱해요','배가 빵빵해요'],
+    products:[
+      {name:'둘코락스',    comp:'비사코딜',           tags:['변비','자극성']},
+      {name:'마그밀',      comp:'산화마그네슘',       tags:['변비','삼투성']},
+      {name:'아락실',      comp:'센나',               tags:['변비','생약']},
+      {name:'뮤타실',      comp:'차전자피',           tags:['변비','식이섬유']},
+    ]
+  },
+];
+
+// ═══════════════════════════════════════════════════
+//  모델 설정
+// ═══════════════════════════════════════════════════
+const MODELS = [
+  {id:'gemini-3.1-flash-lite', label:'3.1 Flash-Lite'},
+  {id:'gemini-3.5-flash',      label:'3.5 Flash'},
+  {id:'gemini-3-flash-preview',label:'3 Flash'},
+  {id:'gemini-2.5-flash',      label:'2.5 Flash'},
+];
+function getModelIdx(){return parseInt(localStorage.getItem('yk_midx')||'0',10)%MODELS.length}
+function nextModelIdx(){const n=(getModelIdx()+1)%MODELS.length;localStorage.setItem('yk_midx',String(n));return n}
+function getTotalCalls(){return parseInt(localStorage.getItem('yk_calls')||'0',10)}
+function incCalls(){const n=getTotalCalls()+1;localStorage.setItem('yk_calls',String(n));return n}
+
+// ═══════════════════════════════════════════════════
+//  Firebase — 자동 연결 (설정 하드코딩)
+// ═══════════════════════════════════════════════════
+const FB_CONFIG = {
+  apiKey:            "AIzaSyCeyhQKKEnHXyGG0XpOoxP4Wp576eb8QFE",
+  authDomain:        "todaysell-d4bbc.firebaseapp.com",
+  projectId:         "todaysell-d4bbc",
+  storageBucket:     "todaysell-d4bbc.firebasestorage.app",
+  messagingSenderId: "582095937004",
+  appId:             "1:582095937004:web:d1547c1e4d022e654074c9",
+  measurementId:     "G-WGH0FE0C5Q"
+};
+
+let db=null, fbUid=null;
+
+function getDeviceId(){
+  let id=localStorage.getItem('yk_did');
+  if(!id){id='ys_'+Math.random().toString(36).slice(2)+Date.now().toString(36);localStorage.setItem('yk_did',id)}
+  return id;
+}
+
+function initFirebase(){
+  try{
+    const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(FB_CONFIG);
+    db = firebase.firestore(app);
+    fbUid = getDeviceId();
+    updateFbBtn('ok');
+    return true;
+  }catch(e){
+    console.error('Firebase 초기화 실패:',e);
+    db=null; updateFbBtn('err'); return false;
+  }
+}
+
+function updateFbBtn(state){
+  const b=document.getElementById('fbBtn');
+  if(state==='ok'){b.textContent='🔥 자동저장 ON'; b.className='hbtn fb-ok';}
+  else if(state==='err'){b.textContent='🔥 저장오류'; b.className='hbtn sync-err';}
+  else{b.textContent='🔥 연결 중...'; b.className='hbtn';}
+}
+
+// 공유 약국 컬렉션 doc ID (직원 전체가 공유할 슬롯)
+const SHARED_DOC = 'central_pharmacy';
+// 기기별 개인 doc
+function myDoc(){ return 'user_' + fbUid; }
+
+// ── 저장: 즐겨찾기·최근조회 → 개인 doc + 공유 최근조회 → 공유 doc
+async function fbSaveUser(data){
+  if(!db||!fbUid) return;
+  try{ await db.collection('yakssok_users').doc(myDoc()).set(data,{merge:true}); }catch(e){console.warn('FB 저장 실패:',e);}
+}
+
+// 공유 최근조회 (약국 전체 직원 공통) 저장
+async function fbSaveSharedRecent(list){
+  if(!db) return;
+  try{
+    await db.collection('yakssok_shared').doc(SHARED_DOC).set({
+      recent: list, updatedAt: Date.now()
+    },{merge:true});
+  }catch(e){console.warn('공유 저장 실패:',e);}
+}
+
+// 공유 최근조회 불러오기
+async function fbLoadSharedRecent(){
+  if(!db) return null;
+  try{
+    const d = await db.collection('yakssok_shared').doc(SHARED_DOC).get();
+    return d.exists ? d.data().recent : null;
+  }catch{ return null; }
+}
+
+async function fbLoadUser(){
+  if(!db||!fbUid) return null;
+  try{
+    const d = await db.collection('yakssok_users').doc(myDoc()).get();
+    return d.exists ? d.data() : null;
+  }catch{ return null; }
+}
+
+async function syncFromFb(){
+  // 개인 데이터 동기화
+  const ud = await fbLoadUser();
+  if(ud){
+    if(ud.recent&&Array.isArray(ud.recent)){
+      const m=[...new Set([...ud.recent,...getRecent()])].slice(0,10);
+      setRecent(m); renderRecent();
+    }
+    if(ud.favs&&Array.isArray(ud.favs)){
+      const m=[...new Set([...ud.favs,...getFavs()])];
+      setFavs(m); renderFavs();
+    }
+    if(ud.apiKey){ localStorage.setItem('yk_ak', ud.apiKey); updateApiBtn(); }
+  }
+  // 공유 최근조회 병합
+  const sr = await fbLoadSharedRecent();
+  if(sr&&Array.isArray(sr)){
+    const m=[...new Set([...getRecent(),...sr])].slice(0,10);
+    setRecent(m); renderRecent();
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  로컬 데이터 (localStorage 기본, Firebase 보조)
+// ═══════════════════════════════════════════════════
+function getApiKey(){return localStorage.getItem('yk_ak')||''}
+function getRecent(){try{return JSON.parse(localStorage.getItem('yk_rc')||'[]')}catch{return[]}}
+function setRecent(l){localStorage.setItem('yk_rc',JSON.stringify(l))}
+function getFavs(){try{return JSON.parse(localStorage.getItem('yk_fv')||'[]')}catch{return[]}}
+function setFavs(l){localStorage.setItem('yk_fv',JSON.stringify(l))}
+
+// 최근 조회 추가 → localStorage + Firebase(개인+공유) 자동 저장
+async function addRecent(name){
+  let l=getRecent().filter(x=>x!==name);
+  l.unshift(name);
+  if(l.length>10) l=l.slice(0,10);
+  setRecent(l);
+  renderRecent();
+  // 비동기 Firebase 저장 (실패 무시)
+  fbSaveUser({recent:l, updatedAt:Date.now()});
+  fbSaveSharedRecent(l);
+}
+
+// 즐겨찾기 토글 → localStorage + Firebase(개인) 자동 저장
+async function toggleFavStorage(name){
+  let f=getFavs();
+  const ex=f.includes(name);
+  f = ex ? f.filter(x=>x!==name) : [name,...f];
+  setFavs(f);
+  fbSaveUser({favs:f, updatedAt:Date.now()});
+  return !ex;
+}
+
+// API 키 저장 시 Firebase에도 백업
+async function saveApiKeyWithFb(key){
+  localStorage.setItem('yk_ak', key);
+  if(key) fbSaveUser({apiKey: key, updatedAt: Date.now()});
+  updateApiBtn();
+}
+
+// ═══════════════════════════════════════════════════
+//  탭 / 뷰 관리
+// ═══════════════════════════════════════════════════
+let prevView='home'; // 결과에서 뒤로 갈 때 참조
+
+const VIEWS=['homeView','catView','catDetail','symView','symResultView','ldCard','candList','errCard','resCard'];
+function hideAll(){VIEWS.forEach(id=>{const el=document.getElementById(id);if(el){el.style.display='none';el.classList&&el.classList.remove('cand-list')}})}
+
+function showTab(tab){
+  ['tab0','tab1','tab2','tab3','tab4'].forEach(id=>{
+    document.getElementById(id).classList.remove('on');
+  });
+  hideAll();
+  if(tab==='home'){
+    document.getElementById('tab0').classList.add('on');
+    document.getElementById('homeView').style.display='block';
+    renderRecent();renderFavs();
+  } else if(tab==='sym'){
+    document.getElementById('tab3').classList.add('on');
+    document.getElementById('symView').style.display='block';
+    renderSymView();
+  } else if(tab==='cat'){
+    document.getElementById('tab4').classList.add('on');
+    document.getElementById('catView').style.display='block';
+    renderCatGrid();
+  }
+  prevView=tab;
+  resetModelBar();
+  window.scrollTo(0,0);
+}
+
+function showLoading(txt,sub){
+  hideAll();
+  document.getElementById('ldCard').style.display='block';
+  document.getElementById('ldTxt').textContent=txt||'AI 분석 중...';
+  document.getElementById('ldSub').textContent=sub||'소비자 언어로 변환하고 있어요';
+  document.getElementById('ldMdl').textContent='';
+}
+function showError(msg){hideAll();document.getElementById('errCard').style.display='block';document.getElementById('errTxt').textContent=msg}
+function showCandidates(cands){
+  hideAll();
+  const el=document.getElementById('candList');
+  el.style.display='block';el.classList.add('cand-list');
+  el.innerHTML='<div style="padding:12px 14px 8px;font-size:12px;font-weight:700;color:var(--g500);border-bottom:1px solid var(--g100)">🔎 원하는 제품을 선택하세요</div>'+
+    cands.map(c=>'<div class="cand-item" onclick="searchByName(\''+esc(c.name)+'\')"><div><div class="cand-nm">'+c.name+'</div>'+(c.sub?'<div class="cand-sub">'+c.sub+'</div>':'')+'</div><div class="cand-arr">›</div></div>').join('');
+}
+
+function showResult(data){
+  hideAll();
+  document.getElementById('resCard').style.display='block';
+  currentResult=data;
+  addRecent(data.productName);renderFavs();
+
+  document.getElementById('resBadge').textContent=data.category||'OTC 의약품';
+  document.getElementById('resName').textContent=data.productName;
+  document.getElementById('resComp').textContent='주성분: '+(data.mainIngredient||'-');
+  document.getElementById('ucList').innerHTML=(data.useCases||[]).map((c,i)=>'<div class="uc-item"><div class="uc-n">'+(i+1)+'</div><div class="uc-t">'+c+'</div></div>').join('');
+  document.getElementById('symChips').innerHTML=(data.symptoms||[]).map(s=>'<div class="sym-chip">✓ '+s+'</div>').join('');
+  document.getElementById('staffTxt').textContent=data.staffMent||'';
+  document.getElementById('cautList').innerHTML=(data.cautions||[]).map(c=>'<div class="caut-item"><span class="caut-dot">•</span>'+c+'</div>').join('');
+  if(data.similar&&data.similar.length){
+    document.getElementById('simChips').innerHTML=data.similar.map(s=>'<div class="sim-chip" onclick="searchByName(\''+esc(s)+'\')">'+s+'</div>').join('');
+    document.getElementById('simBlk').style.display='block';
+  } else { document.getElementById('simBlk').style.display='none'; }
+  updateFavBtn();
+  window.scrollTo(0,0);
+}
+
+function goBack(){
+  if(prevView==='cat') showTab('cat');
+  else if(prevView==='sym') showTab('sym');
+  else showTab('home');
+}
+function goHome(){showTab('home')}
+
+// ═══════════════════════════════════════════════════
+//  약효군 렌더링
+// ═══════════════════════════════════════════════════
+function renderCatGrid(){
+  const grid=document.getElementById('catGrid');
+  grid.innerHTML=CATEGORIES.map(cat=>
+    '<div class="cat-card" data-color="'+cat.color+'" onclick="showCatDetail(\''+cat.id+'\')">' +
+    '<div class="cat-icon">'+cat.icon+'</div>'+
+    '<div class="cat-name">'+cat.name+'</div>'+
+    '<div class="cat-desc">'+cat.desc+'</div>'+
+    '<div class="cat-count">대표제품 '+cat.products.length+'종</div>'+
+    '</div>'
+  ).join('');
+}
+
+function showCatDetail(catId){
+  const cat=CATEGORIES.find(c=>c.id===catId);
+  if(!cat)return;
+
+  // 색상 매핑
+  const colorMap={blue:'#3b82f6',green:'#22c55e',red:'#ef4444',orange:'#f97316',
+    purple:'#a855f7',pink:'#ec4899',teal:'#14b8a6',yellow:'#eab308',
+    indigo:'#6366f1',brown:'#92400e'};
+  const bg=colorMap[cat.color]||'#6366f1';
+
+  hideAll();
+  const detail=document.getElementById('catDetail');
+  detail.style.display='block';
+
+  detail.innerHTML=
+    '<div class="cat-detail-header" style="background:linear-gradient(135deg,'+bg+','+bg+'99)">'+
+      '<button class="cat-detail-back" onclick="showTab(\'cat\')">← 약효군 목록</button>'+
+      '<div class="cat-detail-icon">'+cat.icon+'</div>'+
+      '<div class="cat-detail-name">'+cat.name+'</div>'+
+      '<div class="cat-detail-sub">'+cat.desc+'</div>'+
+    '</div>'+
+    '<div class="sym-explain">'+
+      '<div class="sym-explain-title">💬 손님이 이렇게 말해요</div>'+
+      '<div class="sym-tags">'+cat.symptoms.map(s=>'<div class="sym-tag">'+s+'</div>').join('')+'</div>'+
+    '</div>'+
+    '<div class="prod-list-title">대표 제품 '+cat.products.length+'종</div>'+
+    cat.products.map(p=>
+      '<div class="prod-item" onclick="searchByName(\''+esc(p.name)+'\')">'+
+        '<div class="prod-item-left">'+
+          '<div class="prod-item-name">'+p.name+'</div>'+
+          '<div class="prod-item-comp">'+p.comp+'</div>'+
+          '<div class="prod-item-tags">'+p.tags.map(t=>'<span class="prod-tag">'+t+'</span>').join('')+'</div>'+
+        '</div>'+
+        '<div class="prod-arrow">›</div>'+
+      '</div>'
+    ).join('');
+
+  prevView='cat';
+  window.scrollTo(0,0);
+}
+
+// ═══════════════════════════════════════════════════
+//  홈 렌더링
+// ═══════════════════════════════════════════════════
+function renderRecent(){
+  const l=getRecent(),el=document.getElementById('recentChips');
+  el.innerHTML=l.length?l.map(n=>'<div class="chip" onclick="searchByName(\''+esc(n)+'\')">'+n+'</div>').join(''):'<span class="empty-hint">아직 조회한 제품이 없어요</span>';
+}
+function renderFavs(){
+  const f=getFavs(),el=document.getElementById('favChips'),st=document.getElementById('favSt');
+  if(!f.length){el.innerHTML='';st.style.display='none';return}
+  st.style.display='flex';
+  el.innerHTML=f.map(n=>'<div class="chip fav" onclick="searchByName(\''+esc(n)+'\')">⭐ '+n+'</div>').join('');
+}
+function showFavTab(){goHome();setTimeout(()=>{const st=document.getElementById('favSt');if(st.style.display!=='none')st.scrollIntoView({behavior:'smooth'})},60)}
+function updateFavBtn(){
+  if(!currentResult)return;
+  const b=document.getElementById('favBtn');
+  const on=getFavs().includes(currentResult.productName);
+  b.textContent=on?'★ 저장됨':'☆ 저장';on?b.classList.add('on'):b.classList.remove('on');
+}
+async function toggleFav(){if(!currentResult)return;await toggleFavStorage(currentResult.productName);updateFavBtn();renderFavs()}
+
+// ═══════════════════════════════════════════════════
+//  증상 검색 데이터
+// ═══════════════════════════════════════════════════
+const SYM_CATS = [
+  {id:'all',   label:'전체', icon:'🔍'},
+  {id:'gastro',label:'위·장', icon:'🫁'},
+  {id:'pain',  label:'통증·열', icon:'🤕'},
+  {id:'resp',  label:'호흡기', icon:'🤧'},
+  {id:'skin',  label:'피부·상처', icon:'🩹'},
+  {id:'eye',   label:'눈·코', icon:'👁️'},
+  {id:'energy',label:'피로·영양', icon:'💊'},
+  {id:'other', label:'기타', icon:'➕'},
+];
+
+const SYMPTOMS = [
+  // 위·장
+  {id:'s01', cat:'gastro', icon:'🔥', label:'속이 쓰려요',       keywords:['속쓰림','위산','신물']},
+  {id:'s02', cat:'gastro', icon:'😮‍💨', label:'소화가 안 돼요',     keywords:['소화불량','더부룩','소화']},
+  {id:'s03', cat:'gastro', icon:'🤢', label:'신물이 올라와요',    keywords:['역류','신물','위산역류']},
+  {id:'s04', cat:'gastro', icon:'💨', label:'배가 더부룩해요',    keywords:['가스','팽만','더부룩']},
+  {id:'s05', cat:'gastro', icon:'🚽', label:'설사가 나요',        keywords:['설사','묽은변','장염']},
+  {id:'s06', cat:'gastro', icon:'💩', label:'변비예요',           keywords:['변비','딱딱한변','배변']},
+  {id:'s07', cat:'gastro', icon:'😣', label:'배가 아파요',        keywords:['복통','배통증','장경련']},
+  {id:'s08', cat:'gastro', icon:'🤮', label:'메스껍고 울렁거려요',keywords:['구역','구토','멀미']},
+  // 통증·열
+  {id:'s09', cat:'pain',   icon:'🧠', label:'머리가 아파요',      keywords:['두통','머리통증','편두통']},
+  {id:'s10', cat:'pain',   icon:'🌡️', label:'열이 나요',          keywords:['발열','고열','열']},
+  {id:'s11', cat:'pain',   icon:'🦷', label:'이가 아파요',        keywords:['치통','잇몸','치아']},
+  {id:'s12', cat:'pain',   icon:'🩸', label:'생리통이에요',       keywords:['생리통','월경','생리']},
+  {id:'s13', cat:'pain',   icon:'💪', label:'근육·몸살이에요',    keywords:['근육통','몸살','근육']},
+  {id:'s14', cat:'pain',   icon:'🦴', label:'관절이 아파요',      keywords:['관절통','관절','뼈']},
+  {id:'s15', cat:'pain',   icon:'🔙', label:'허리·어깨가 아파요', keywords:['요통','허리','어깨']},
+  {id:'s16', cat:'pain',   icon:'🤕', label:'타박상·삐었어요',    keywords:['타박상','삠','부종']},
+  // 호흡기
+  {id:'s17', cat:'resp',   icon:'💧', label:'콧물이 나요',        keywords:['콧물','비루','콧물감기']},
+  {id:'s18', cat:'resp',   icon:'🔒', label:'코가 막혀요',        keywords:['코막힘','비충혈','코']},
+  {id:'s19', cat:'resp',   icon:'😤', label:'기침이 나요',        keywords:['기침','해수','마른기침']},
+  {id:'s20', cat:'resp',   icon:'🫧', label:'가래가 껴요',        keywords:['가래','객담','기관지']},
+  {id:'s21', cat:'resp',   icon:'😰', label:'목이 아프고 간지러워요',keywords:['인후통','목통증','인후']},
+  {id:'s22', cat:'resp',   icon:'😮‍💨',label:'숨이 차요',          keywords:['호흡곤란','천식','기관지']},
+  // 피부·상처
+  {id:'s23', cat:'skin',   icon:'🩸', label:'상처가 났어요',      keywords:['상처','찰과상','베임']},
+  {id:'s24', cat:'skin',   icon:'🦟', label:'벌레에 물렸어요',    keywords:['벌레물림','모기','벌레']},
+  {id:'s25', cat:'skin',   icon:'😣', label:'가려워요',           keywords:['가려움','소양감','두드러기']},
+  {id:'s26', cat:'skin',   icon:'🔴', label:'두드러기가 났어요',  keywords:['두드러기','알레르기','발진']},
+  {id:'s27', cat:'skin',   icon:'🔥', label:'화상을 입었어요',    keywords:['화상','열상','뜨거움']},
+  {id:'s28', cat:'skin',   icon:'💧', label:'피부가 건조해요',    keywords:['건조','보습','습진']},
+  // 눈·코
+  {id:'s29', cat:'eye',    icon:'👁️', label:'눈이 빨개요',        keywords:['충혈','결막염','눈빨개']},
+  {id:'s30', cat:'eye',    icon:'💧', label:'눈이 건조하고 뻑뻑해요',keywords:['안구건조','건조','인공눈물']},
+  {id:'s31', cat:'eye',    icon:'😖', label:'눈이 가려워요',      keywords:['눈가려움','알레르기','눈']},
+  {id:'s32', cat:'eye',    icon:'🤧', label:'알레르기 비염이에요', keywords:['비염','알레르기','재채기']},
+  // 피로·영양
+  {id:'s33', cat:'energy', icon:'😴', label:'피로해요',           keywords:['피로','피곤','무기력']},
+  {id:'s34', cat:'energy', icon:'😵', label:'어지러워요',         keywords:['어지럼증','현기증','두통']},
+  {id:'s35', cat:'energy', icon:'💊', label:'영양보충이 필요해요', keywords:['영양','비타민','보충']},
+  {id:'s36', cat:'energy', icon:'🦷', label:'구내염이에요',       keywords:['구내염','입안염','입병']},
+  // 기타
+  {id:'s37', cat:'other',  icon:'🤒', label:'감기몸살이에요',     keywords:['감기','몸살','종합']},
+  {id:'s38', cat:'other',  icon:'🚗', label:'멀미해요',           keywords:['멀미','차멀미','구역']},
+  {id:'s39', cat:'other',  icon:'😴', label:'잠이 안 와요',       keywords:['불면','수면','잠']},
+  {id:'s40', cat:'other',  icon:'💊', label:'숙취해요',           keywords:['숙취','음주','간']},
+];
+
+// 자주 찾는 증상 (홈에서도 보여줄 것)
+const QUICK_SYMS = ['속이 쓰려요','머리가 아파요','콧물이 나요','열이 나요','기침이 나요','상처가 났어요','가려워요','피로해요'];
+
+let symCatFilter = 'all';
+let symSearchVal = '';
+
+// ═══════════════════════════════════════════════════
+//  증상 검색 뷰 렌더링
+// ═══════════════════════════════════════════════════
+function renderSymView(){
+  // 카테고리 필터 바
+  const bar = document.getElementById('symCatBar');
+  bar.innerHTML = SYM_CATS.map(c=>
+    '<div class="sym-cat-chip'+(symCatFilter===c.id?' on':'')+
+    '" onclick="setSymCat(\''+c.id+'\')">'+c.icon+' '+c.label+'</div>'
+  ).join('');
+
+  // 빠른 증상 태그
+  document.getElementById('quickSymTags').innerHTML = QUICK_SYMS.map(s=>
+    '<div class="quick-sym-tag" onclick="doSymSearchWith(\''+esc(s)+'\')">'+s+'</div>'
+  ).join('');
+
+  renderSymGrid();
+}
+
+function setSymCat(catId){
+  symCatFilter = catId;
+  document.querySelectorAll('.sym-cat-chip').forEach(el=>{
+    el.classList.toggle('on', el.textContent.includes(SYM_CATS.find(c=>c.id===catId).label));
+  });
+  renderSymGrid();
+}
+
+function renderSymGrid(){
+  const filtered = SYMPTOMS.filter(s=>{
+    const catOk = symCatFilter==='all' || s.cat===symCatFilter;
+    const searchOk = !symSearchVal ||
+      s.label.includes(symSearchVal) ||
+      s.keywords.some(k=>k.includes(symSearchVal));
+    return catOk && searchOk;
+  });
+
+  const title = document.getElementById('symGridTitle');
+  title.textContent = symCatFilter==='all'
+    ? (symSearchVal ? '"'+symSearchVal+'" 검색 결과 '+filtered.length+'개' : '전체 증상')
+    : (SYM_CATS.find(c=>c.id===symCatFilter)?.label || '') + ' '+filtered.length+'가지';
+
+  document.getElementById('symBtnGrid').innerHTML = filtered.map(s=>
+    '<button class="sym-btn" onclick="doSymSearchWith(\''+esc(s.label)+'\')">'+
+    '<span class="sym-btn-ic">'+s.icon+'</span>'+
+    '<span class="sym-btn-txt">'+s.label+'</span>'+
+    '</button>'
+  ).join('') || '<div style="grid-column:1/-1;text-align:center;padding:24px 0;color:var(--g400);font-size:13px">검색 결과가 없어요</div>';
+}
+
+function onSymInput(v){
+  symSearchVal = v.trim();
+  document.getElementById('symClr').style.display = v ? 'block' : 'none';
+  renderSymGrid();
+}
+function clearSymInp(){
+  const el=document.getElementById('symInp');
+  el.value=''; symSearchVal='';
+  document.getElementById('symClr').style.display='none';
+  renderSymGrid();
+}
+
+// ═══════════════════════════════════════════════════
+//  증상 → AI 분석
+// ═══════════════════════════════════════════════════
+async function doSymSearch(){
+  const v = document.getElementById('symInp').value.trim();
+  if(!v) return;
+  doSymSearchWith(v);
+}
+
+async function doSymSearchWith(symptom){
+  // 결과 뷰로 전환
+  hideAll();
+  document.getElementById('ldCard').style.display='block';
+  document.getElementById('ldTxt').textContent='증상 분석 중...';
+  document.getElementById('ldSub').textContent='"'+symptom+'" 에 맞는 약을 찾고 있어요';
+  document.getElementById('ldMdl').textContent='';
+  prevView='sym';
+  window.scrollTo(0,0);
+
+  try{
+    const prompt = buildSymPrompt(symptom);
+    const raw = await callGemini(prompt, null, null);
+    const json = extractJson(raw);
+
+    if(!json || !json.products){
+      showError('증상 분석 결과를 가져오지 못했습니다. 다시 시도해주세요.');
+      return;
+    }
+    showSymResult(symptom, json);
+  }catch(e){
+    showError(e.message||'알 수 없는 오류');
+  }
+}
+
+function buildSymPrompt(symptom){
+  return '당신은 약국 직원 교육 전문 AI입니다.\n\n'+
+    '손님 증상: "'+symptom+'"\n\n'+
+    '이 증상에 적합한 OTC 의약품 3가지를 추천하고 이유를 소비자 언어로 설명하세요.\n'+
+    'JSON 형식으로만 응답. 마크다운 없이.\n\n'+
+    '{"symptom":"분석된 증상","products":['+
+    '{"rank":1,"name":"제품명","category":"약효군","reason":"이 증상에 이 약을 추천하는 이유(2문장, 소비자언어)","staffMent":"직원이 손님에게 하는 자연스러운 한 문장"},'+
+    '{"rank":2,...},{"rank":3,...}'+
+    '],"tip":"약사 참고 팁 1줄"}\n\n'+
+    '규칙: reason은 중학생도 이해 가능한 쉬운 말/약학용어 금지/광고 금지/JSON만 반환';
+}
+
+function showSymResult(symptom, json){
+  hideAll();
+  const rv = document.getElementById('symResultView');
+  rv.style.display='block';
+
+  document.getElementById('symResultQuery').textContent = '손님 증상';
+  document.getElementById('symResultTitle').textContent = '"'+symptom+'"';
+
+  const body = document.getElementById('symResultBody');
+  const colorMap={1:'#059669',2:'#2563eb',3:'#7c3aed'};
+
+  let html = (json.products||[]).map(p=>
+    '<div class="sym-ai-card">'+
+      '<div class="sym-ai-card-header">'+
+        '<div class="sym-ai-rank" style="background:'+colorMap[p.rank]+'">'+(p.rank||'?')+'</div>'+
+        '<div class="sym-ai-name">'+p.name+'</div>'+
+        '<div class="sym-ai-cat">'+p.category+'</div>'+
+      '</div>'+
+      '<div class="sym-ai-body">'+
+        '<div class="sym-ai-reason">'+p.reason+'</div>'+
+        (p.staffMent?
+          '<div style="background:#fffbeb;border:1.5px solid #fde68a;border-radius:8px;padding:8px 10px;font-size:12px;color:var(--g700);margin-bottom:10px;font-style:italic">💬 '+p.staffMent+'</div>'
+          :'')+
+        '<button class="sym-ai-detail-btn" onclick="searchByName(\''+esc(p.name)+'\')">'+
+          '🔍 '+p.name+' 상세보기 →'+
+        '</button>'+
+      '</div>'+
+    '</div>'
+  ).join('');
+
+  if(json.tip){
+    html += '<div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;'+
+      'padding:11px 13px;font-size:12px;color:#16a34a;margin-bottom:10px;">'+
+      '💡 약사 팁: '+json.tip+'</div>';
+  }
+
+  html += '<button onclick="showTab(\'sym\')" style="width:100%;padding:10px;background:var(--g100);'+
+    'border:none;border-radius:8px;font-size:13px;font-weight:600;color:var(--g500);cursor:pointer;margin-top:2px">'+
+    '← 증상 목록으로</button>';
+
+  body.innerHTML = html;
+  window.scrollTo(0,0);
+}
+
+// ═══════════════════════════════════════════════════
+//  모델 바
+// ═══════════════════════════════════════════════════
+function updateModelBar(ai,errSet){
+  MODELS.forEach((_,i)=>{
+    const d=document.getElementById('md'+i);
+    d.className='mdot'+(errSet&&errSet.has(i)?' err':i===ai?' active':'');
+  });
+  document.getElementById('modelBadge').textContent=MODELS[ai]?MODELS[ai].label:'-';
+  document.getElementById('mcnt').textContent='총 '+getTotalCalls()+'회';
+}
+function resetModelBar(){MODELS.forEach((_,i)=>{document.getElementById('md'+i).className='mdot'});document.getElementById('modelBadge').textContent='대기중'}
+
+// ═══════════════════════════════════════════════════
+//  검색
+// ═══════════════════════════════════════════════════
+function onSiInput(v){document.getElementById('siClr').style.display=v?'block':'none';document.getElementById('siIc').style.display=v?'none':'block'}
+function clearSi(){const s=document.getElementById('si');s.value='';onSiInput('');s.focus()}
+function focusSearch(){document.getElementById('si').focus();window.scrollTo(0,0)}
+function doSearch(){const n=document.getElementById('si').value.trim();if(!n)return;analyzeProduct(n,null,'name')}
+function searchByName(name){document.getElementById('si').value=name;onSiInput(name);analyzeProduct(name,null,'name')}
+
+// ═══════════════════════════════════════════════════
+//  업로드
+// ═══════════════════════════════════════════════════
+let uploadMode='product';
+function openUpload(mode){uploadMode=mode;document.getElementById('imgPrev').style.display='none';document.getElementById('umTtl').textContent=mode==='ingredient'?'📄 성분표 사진 분석':'📷 제품 사진 분석';document.getElementById('umModal').classList.add('open')}
+function closeUpload(){document.getElementById('umModal').classList.remove('open')}
+function onFileSelected(evt){
+  const f=evt.target.files[0];if(!f)return;
+  const r=new FileReader();r.onload=e=>{const p=document.getElementById('imgPrev');p.src=e.target.result;p.style.display='block'};r.readAsDataURL(f);
+  setTimeout(()=>{closeUpload();analyzeProduct('',f,uploadMode)},600);
+}
+
+// ═══════════════════════════════════════════════════
+//  모달
+// ═══════════════════════════════════════════════════
+function openApiModal(){document.getElementById('amInp').value=getApiKey();document.getElementById('amModal').classList.add('open')}
+function closeApiModal(){document.getElementById('amModal').classList.remove('open')}
+function saveApiKey(){
+  const k=document.getElementById('amInp').value.trim();
+  saveApiKeyWithFb(k);
+  closeApiModal();
+}
+function updateApiBtn(){
+  const k=getApiKey(), b=document.getElementById('apiBtn');
+  b.textContent=k?'🔑 설정됨':'🔑 API키';
+  b.className=k?'hbtn on':'hbtn';
+}
+
+// ═══════════════════════════════════════════════════
+//  Gemini API
+// ═══════════════════════════════════════════════════
+let currentResult=null;
+
+async function callGemini(prompt,imgB64,imgMime){
+  const ak=getApiKey();
+  if(!ak)throw new Error('API 키가 없습니다. 🔑 버튼을 눌러 Gemini API 키를 입력해주세요.');
+  const si=getModelIdx(),errSet=new Set();
+  for(let a=0;a<MODELS.length;a++){
+    const idx=(si+a)%MODELS.length,m=MODELS[idx];
+    updateModelBar(idx,errSet);
+    document.getElementById('ldMdl').textContent='🤖 '+m.label+' 사용 중';
+    const parts=[];
+    if(imgB64&&imgMime)parts.push({inlineData:{mimeType:imgMime,data:imgB64}});
+    parts.push({text:prompt});
+    try{
+      const res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+m.id+':generateContent',{
+        method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':ak},
+        body:JSON.stringify({contents:[{role:'user',parts}],generationConfig:{temperature:0.3,maxOutputTokens:2048}})
+      });
+      if(!res.ok){const ed=await res.json().catch(()=>({}));const msg=(ed&&ed.error&&ed.error.message)||'HTTP '+res.status;if(res.status===429||res.status===503||res.status===404){errSet.add(idx);continue}throw new Error(msg)}
+      const d=await res.json();
+      const txt=d?.candidates?.[0]?.content?.parts?.[0]?.text||'';
+      if(!txt){errSet.add(idx);continue}
+      nextModelIdx();const c=incCalls();updateModelBar(idx,errSet);document.getElementById('mcnt').textContent='총 '+c+'회';
+      return txt;
+    }catch(e){errSet.add(idx);if(a===MODELS.length-1)throw e}
+  }
+  throw new Error('모든 모델에서 응답 실패. API 키와 한도를 확인하세요.');
+}
+
+async function analyzeProduct(name,file,mode){
+  showLoading('AI 분석 중...','소비자 언어로 변환하고 있어요');
+  try{
+    let b64=null,mime=null;
+    if(file){b64=await fileToB64(file);mime=file.type||'image/jpeg';document.getElementById('ldSub').textContent='이미지에서 제품명을 읽고 있어요'}
+    const raw=await callGemini(buildPrompt(name,mode,!!file),b64,mime);
+    const json=extractJson(raw);
+    if(!json){showError('AI 응답 파싱 실패. 다시 시도해주세요.\n원문: '+raw.slice(0,200));return}
+    if(json.candidates&&json.candidates.length>1){showCandidates(json.candidates);return}
+    if(json.productName)showResult(json);
+    else showError('분석 결과를 가져오지 못했습니다. 더 명확한 제품명이나 사진을 사용해주세요.');
+  }catch(e){showError(e.message||'알 수 없는 오류')}
+}
+
+function buildPrompt(name,mode,hasImg){
+  const imgI=hasImg?(mode==='ingredient'?'이 이미지는 의약품 성분표입니다. 성분명과 함량을 읽어 분석하세요.':'이 이미지에서 의약품 제품명을 식별하고 정보를 분석하세요.'):'';
+  const nmI=name?'제품명 또는 성분: "'+name+'"':'';
+  return '당신은 약국 직원 교육 전문 AI입니다. 의약품을 일반 소비자(중학생도 이해 가능) 언어로 설명하세요.\n\n'+imgI+'\n'+nmI+'\n\nJSON 형식으로만 응답. 마크다운 없이.\n\n여러 제품 해당시:\n{"candidates":[{"name":"제품명","sub":"설명"}]}\n\n단일:\n{"productName":"제품명","category":"약효군","mainIngredient":"주성분 함량","useCases":["이럴 때1(30자이내,소비자언어)","이럴 때2","이럴 때3"],"symptoms":["손님표현1","표현2","표현3","표현4"],"staffMent":"직원 추천 멘트 1~2문장","cautions":["주의사항1","주의사항2","주의사항3"],"similar":["비슷제품1","제품2","제품3"]}\n\n규칙: useCases 약학용어 금지/symptoms 실제 손님 표현/광고 과장 금지/JSON만 반환';
+}
+
+function fileToB64(file){return new Promise((ok,err)=>{const r=new FileReader();r.onload=e=>ok(e.target.result.split(',')[1]);r.onerror=()=>err(new Error('파일 읽기 실패'));r.readAsDataURL(file)})}
+function extractJson(t){let c=t.replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();const s=c.indexOf('{'),e=c.lastIndexOf('}');if(s<0||e<0)return null;try{return JSON.parse(c.slice(s,e+1))}catch{return null}}
+function esc(s){return(s||'').replace(/'/g,"&#39;")}
+
+// ═══════════════════════════════════════════════════
+//  초기화
+// ═══════════════════════════════════════════════════
+(function init(){
+  // API 키 상태 표시
+  updateApiBtn();
+
+  // Firebase 자동 연결 (하드코딩된 설정 사용)
+  const fbOk = initFirebase();
+  if(fbOk){
+    // 비동기 동기화: Firebase → localStorage 병합
+    syncFromFb().catch(e => console.warn('동기화 실패:', e));
+  }
+
+  document.getElementById('mcnt').textContent='총 '+getTotalCalls()+'회';
+  renderRecent();
+  renderFavs();
+  document.getElementById('homeView').style.display='block';
+})();
+</script>
+</body>
+</html>
