@@ -373,7 +373,7 @@ body{font-family:-apple-system,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
     <div class="mcnt" id="mcnt"></div>
   </div>
   <div class="sw">
-    <input class="si" id="si" placeholder="제품명 검색 (겔포스, 타이레놀...)"
+    <input class="si" id="si" placeholder="제품명 또는 성분명 검색 (타이레놀, 아세트아미노펜...)"
       oninput="onSiInput(this.value)" onkeydown="if(event.key==='Enter')doSearch()">
     <span class="si-ic" id="siIc">🔍</span>
     <button class="si-clr" id="siClr" onclick="clearSi()">✕</button>
@@ -383,17 +383,17 @@ body{font-family:-apple-system,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
 <!-- 메인 -->
 <div class="main" id="mainWrap">
 
-  <!-- ① 홈 뷰 -->
+  <!-- ① 홈 뷰 (스마트 통합 버튼 적용) -->
   <div id="homeView">
     <div class="im">
-      <button class="im-btn photo" onclick="openUpload('product')">
-        <div class="im-ic">📷</div><div class="im-lbl">제품<br>사진</div>
-      </button>
-      <button class="im-btn ingr" onclick="openUpload('ingredient')">
-        <div class="im-ic">📄</div><div class="im-lbl">성분표<br>사진</div>
+      <button class="im-btn photo" onclick="openUpload('auto')">
+        <div class="im-ic">📷</div><div class="im-lbl">스마트<br>사진분석</div>
       </button>
       <button class="im-btn" onclick="focusSearch()">
-        <div class="im-ic">🔍</div><div class="im-lbl">제품명<br>검색</div>
+        <div class="im-ic">🔍</div><div class="im-lbl">제품명·성분<br>검색</div>
+      </button>
+      <button class="im-btn ingr" onclick="showTab('sym')">
+        <div class="im-ic">🩺</div><div class="im-lbl">증상으로<br>찾기</div>
       </button>
     </div>
     <div class="st">최근 조회</div>
@@ -521,7 +521,7 @@ body{font-family:-apple-system,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
     <span class="ti-ic">🏠</span><span class="ti-lb">홈</span></button>
   <button class="ti" id="tab1" onclick="focusSearch();showTab('home')">
     <span class="ti-ic">🔍</span><span class="ti-lb">제품검색</span></button>
-  <button class="ti" id="tab2" onclick="openUpload('product')">
+  <button class="ti" id="tab2" onclick="openUpload('auto')">
     <span class="ti-ic">📷</span><span class="ti-lb">사진분석</span></button>
   <button class="ti" id="tab3" onclick="showTab('sym')">
     <span class="ti-ic">🩺</span><span class="ti-lb">증상검색</span></button>
@@ -533,7 +533,7 @@ body{font-family:-apple-system,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
 <div class="um" id="umModal">
   <div class="um-sh">
     <div class="um-hnd"></div>
-    <div class="um-ttl" id="umTtl">📷 제품 사진 분석</div>
+    <div class="um-ttl" id="umTtl">📷 스마트 사진 분석</div>
     <img id="imgPrev" class="img-prev" alt="미리보기">
     <div class="um-area" onclick="document.getElementById('fileInp').click()">
       <div class="um-ai">📁</div>
@@ -807,6 +807,53 @@ async function syncFromFb(){
 }
 
 // ═══════════════════════════════════════════════════
+//  로컬 및 데이터베이스 제품 캐시 관리
+// ═══════════════════════════════════════════════════
+function getLocalCache(name) {
+  try {
+    return JSON.parse(localStorage.getItem('yk_cache_' + name.trim().toLowerCase()) || 'null');
+  } catch { return null; }
+}
+
+function setLocalCache(name, data) {
+  try {
+    localStorage.setItem('yk_cache_' + name.trim().toLowerCase(), JSON.stringify(data));
+  } catch {}
+}
+
+async function getProductCache(name) {
+  const key = name.trim().toLowerCase();
+  // 1차로 로컬 캐시 조회
+  const local = getLocalCache(key);
+  if (local) return local;
+  
+  // 2차로 Firestore 공유 캐시 조회 (다른 기기에서 검색했더라도 실시간 병합됨)
+  if (db) {
+    try {
+      const snap = await db.collection('yakssok_products').doc(key).get();
+      if (snap.exists) {
+        const data = snap.data();
+        setLocalCache(key, data);
+        return data;
+      }
+    } catch (e) { console.warn('캐시 조회 에러:', e); }
+  }
+  return null;
+}
+
+async function saveProductCache(name, data) {
+  const key = name.trim().toLowerCase();
+  // 로컬 저장
+  setLocalCache(key, data);
+  // Firestore 글로벌 저장 (협업형 통합 DB 구축)
+  if (db) {
+    try {
+      await db.collection('yakssok_products').doc(key).set(data);
+    } catch (e) { console.warn('캐시 업로드 에러:', e); }
+  }
+}
+
+// ═══════════════════════════════════════════════════
 //  로컬 데이터
 // ═══════════════════════════════════════════════════
 function getApiKey(){
@@ -996,69 +1043,7 @@ function updateFavBtn(){
 async function toggleFav(){if(!currentResult)return;await toggleFavStorage(currentResult.productName);updateFavBtn();renderFavs()}
 
 // ═══════════════════════════════════════════════════
-//  증상 검색 데이터
-// ═══════════════════════════════════════════════════
-const SYM_CATS = [
-  {id:'all',   label:'전체', icon:'🔍'},
-  {id:'gastro',label:'위·장', icon:'🫁'},
-  {id:'pain',  label:'통증·열', icon:'🤕'},
-  {id:'resp',  label:'호흡기', icon:'🤧'},
-  {id:'skin',  label:'피부·상처', icon:'🩹'},
-  {id:'eye',   label:'눈·코', icon:'👁️'},
-  {id:'energy',label:'피로·영양', icon:'💊'},
-  {id:'other', label:'기타', icon:'➕'},
-];
-
-const SYMPTOMS = [
-  {id:'s01', cat:'gastro', icon:'🔥', label:'속이 쓰려요',       keywords:['속쓰림','위산','신물']},
-  {id:'s02', cat:'gastro', icon:'😮‍💨', label:'소화가 안 돼요',     keywords:['소화불량','더부룩','소화']},
-  {id:'s03', cat:'gastro', icon:'🤢', label:'신물이 올라와요',    keywords:['역류','신물','위산역류']},
-  {id:'s04', cat:'gastro', icon:'💨', label:'배가 더부룩해요',    keywords:['가스','팽만','더부룩']},
-  {id:'s05', cat:'gastro', icon:'🚽', label:'설사가 나요',        keywords:['설사','묽은변','장염']},
-  {id:'s06', cat:'gastro', icon:'💩', label:'변비예요',           keywords:['변비','딱딱한변','배변']},
-  {id:'s07', cat:'gastro', icon:'😣', label:'배가 아파요',        keywords:['복통','배통증','장경련']},
-  {id:'s08', cat:'gastro', icon:'🤮', label:'메스껍고 울렁거려요',keywords:['구역','구토','멀미']},
-  {id:'s09', cat:'pain',   icon:'🧠', label:'머리가 아파요',      keywords:['두통','머리통증','편두통']},
-  {id:'s10', cat:'pain',   icon:'🌡️', label:'열이 나요',          keywords:['발열','고열','열']},
-  {id:'s11', cat:'pain',   icon:'🦷', label:'이가 아파요',        keywords:['치통','잇몸','치아']},
-  {id:'s12', cat:'pain',   icon:'🩸', label:'생리통이에요',       keywords:['생리통','월경','생리']},
-  {id:'s13', cat:'pain',   icon:'💪', label:'근육·몸살이에요',    keywords:['근육통','몸살','근육']},
-  {id:'s14', cat:'pain',   icon:'🦴', label:'관절이 아파요',      keywords:['관절통','관절','뼈']},
-  {id:'s15', cat:'pain',   icon:'🔙', label:'허리·어깨가 아파요', keywords:['요통','허리','어깨']},
-  {id:'s16', cat:'pain',   icon:'🤕', label:'타박상·삐었어요',    keywords:['타박상','삠','부종']},
-  {id:'s17', cat:'resp',   icon:'💧', label:'콧물이 나요',        keywords:['콧물','비루','콧물감기']},
-  {id:'s18', cat:'resp',   icon:'🔒', label:'코가 막혀요',        keywords:['코막힘','비충혈','코']},
-  {id:'s19', cat:'resp',   icon:'😤', label:'기침이 나요',        keywords:['기침','해수','마른기침']},
-  {id:'s20', cat:'resp',   icon:'🫧', label:'가래가 껴요',        keywords:['가래','객담','기관지']},
-  {id:'s21', cat:'resp',   icon:'😰', label:'목이 아프고 간지러워요',keywords:['인후통','목통증','인후']},
-  {id:'s22', cat:'resp',   icon:'😮‍💨',label:'숨이 차요',          keywords:['호흡곤란','천식','기관지']},
-  {id:'s23', cat:'skin',   icon:'🩸', label:'상처가 났어요',      keywords:['상처','찰과상','베임']},
-  {id:'s24', cat:'skin',   icon:'🦟', label:'벌레에 물렸어요',    keywords:['벌레물림','모기','벌레']},
-  {id:'s25', cat:'skin',   icon:'😣', label:'가려워요',           keywords:['가려움','소양감','두드러기']},
-  {id:'s26', cat:'skin',   icon:'🔴', label:'두드러기가 났어요',  keywords:['두드러기','알레르기','발진']},
-  {id:'s27', cat:'skin',   icon:'🔥', label:'화상을 입었어요',    keywords:['화상','열상','뜨거움']},
-  {id:'s28', cat:'skin',   icon:'💧', label:'피부가 건조해요',    keywords:['건조','보습','습진']},
-  {id:'s29', cat:'eye',    icon:'👁️', label:'눈이 빨개요',        keywords:['충혈','결막염','눈빨개']},
-  {id:'s30', cat:'eye',    icon:'💧', label:'눈이 건조하고 뻑뻑해요',keywords:['안구건조','건조','인공눈물']},
-  {id:'s31', cat:'eye',    icon:'😖', label:'눈이 가려워요',      keywords:['눈가려움','알레르기','눈']},
-  {id:'s32', cat:'eye',    icon:'🤧', label:'알레르기 비염이에요', keywords:['비염','알레르기','재채기']},
-  {id:'s33', cat:'energy', icon:'😴', label:'피로해요',           keywords:['피로','피곤','무기력']},
-  {id:'s34', cat:'energy', icon:'😵', label:'어지러워요',         keywords:['어지럼증','현기증','두통']},
-  {id:'s35', cat:'energy', icon:'💊', label:'영양보충이 필요해요', keywords:['영양','비타민','보충']},
-  {id:'s36', cat:'energy', icon:'🦷', label:'구내염이에요',       keywords:['구내염','입안염','입병']},
-  {id:'s37', cat:'other',  icon:'🤒', label:'감기몸살이에요',     keywords:['감기','몸살','종합']},
-  {id:'s38', cat:'other',  icon:'🚗', label:'멀미해요',           keywords:['멀미','차멀미','구역']},
-  {id:'s39', cat:'other',  icon:'😴', label:'잠이 안 와요',       keywords:['불면','수면','잠']},
-  {id:'s40', cat:'other',  icon:'💊', label:'숙취해요',           keywords:['숙취','음주','간']},
-];
-
-const QUICK_SYMS = ['속이 쓰려요','머리가 아파요','콧물이 나요','열이 나요','기침이 나요','상처가 났어요','가려워요','피로해요'];
-
-let symCatFilter = 'all';
-let symSearchVal = '';
-
-// ═══════════════════════════════════════════════════
-//  증상 검색 뷰 렌더링
+//  증상 검색 렌더링
 // ═══════════════════════════════════════════════════
 function renderSymView(){
   const bar = document.getElementById('symCatBar');
@@ -1230,8 +1215,13 @@ function searchByName(name){document.getElementById('si').value=name;onSiInput(n
 // ═══════════════════════════════════════════════════
 //  이미지 핸들러
 // ═══════════════════════════════════════════════════
-let uploadMode='product';
-function openUpload(mode){uploadMode=mode;document.getElementById('imgPrev').style.display='none';document.getElementById('umTtl').textContent=mode==='ingredient'?'📄 성분표 사진 분석':'📷 제품 사진 분석';document.getElementById('umModal').classList.add('open')}
+let uploadMode='auto';
+function openUpload(mode){
+  uploadMode=mode;
+  document.getElementById('imgPrev').style.display='none';
+  document.getElementById('umTtl').textContent=mode==='auto'?'📷 스마트 사진 분석':'📷 제품 또는 성분표 분석';
+  document.getElementById('umModal').classList.add('open');
+}
 function closeUpload(){document.getElementById('umModal').classList.remove('open')}
 function onFileSelected(evt){
   const f=evt.target.files[0];if(!f)return;
@@ -1312,7 +1302,19 @@ async function callGemini(prompt,imgB64,imgMime){
 }
 
 async function analyzeProduct(name,file,mode){
-  showLoading('AI 분석 중...','소비자 언어로 변환하고 있어요');
+  const searchName = name.trim();
+  
+  // 기기 내 캐시 혹은 Firebase 글로벌 캐시에서 먼저 찾기 (0.1초 반응 실현)
+  if(mode === 'name' && searchName && !file){
+    showLoading('저장된 정보 확인 중...', '이전 분석 캐시를 탐색하고 있어요');
+    const cached = await getProductCache(searchName);
+    if(cached){
+      showResult(cached);
+      return;
+    }
+  }
+
+  showLoading('AI 분석 중...', '소비자 언어로 변환하고 있어요');
   try{
     let b64=null,mime=null;
     if(file){b64=await fileToB64(file);mime=file.type||'image/jpeg';document.getElementById('ldSub').textContent='이미지에서 제품명을 읽고 있어요'}
@@ -1320,15 +1322,39 @@ async function analyzeProduct(name,file,mode){
     const json=extractJson(raw);
     if(!json){showError('AI 응답 파싱 실패. 다시 시도해주세요.\n원문: '+raw.slice(0,200));return}
     if(json.candidates&&json.candidates.length>1){showCandidates(json.candidates);return}
-    if(json.productName)showResult(json);
-    else showError('분석 결과를 가져오지 못했습니다. 더 명확한 제품명이나 사진을 사용해주세요.');
+    
+    if(json.productName){
+      // 성공적으로 신규 분석된 결과를 로컬&파이어베이스 글로벌 캐시에 영구 등록
+      await saveProductCache(json.productName, json);
+      if(mode === 'name' && searchName && searchName.toLowerCase() !== json.productName.toLowerCase()){
+        await saveProductCache(searchName, json);
+      }
+      showResult(json);
+    } else {
+      showError('분석 결과를 가져오지 못했습니다. 더 명확한 제품명이나 사진을 사용해주세요.');
+    }
   }catch(e){showError(e.message||'알 수 없는 오류')}
 }
 
 function buildPrompt(name,mode,hasImg){
-  const imgI=hasImg?(mode==='ingredient'?'이 이미지는 의약품 성분표입니다. 성분명과 함량을 읽어 분석하세요.':'이 이미지에서 의약품 제품명을 식별하고 정보를 분석하세요.'):'';
-  const nmI=name?'제품명 또는 성분: "'+name+'"':'';
-  return '당신은 약국 직원 교육 전문 AI입니다. 의약품을 일반 소비자(중학생도 이해 가능) 언어로 설명하세요.\n\n'+imgI+'\n'+nmI+'\n\nJSON 형식으로만 응답. 마크다운 없이.\n\n여러 제품 해당시:\n{"candidates":[{"name":"제품명","sub":"설명"}]}\n\n단일:\n{"productName":"제품명","category":"약효군","mainIngredient":"주성분 함량","useCases":["이럴 때1(30자이내,소비자언어)","이럴 때2","이럴 때3"],"symptoms":["손님표현1","표현2","표현3","표현4"],"staffMent":"직원 추천 멘트 1~2문장","cautions":["주의사항1","주의사항2","주의사항3"],"similar":["비슷제품1","제품2","제품3"]}\n\n규칙: useCases 약학용어 금지/symptoms 실제 손님 표현/광고 과장 금지/JSON만 반환';
+  let imgI = '';
+  if(hasImg){
+    imgI = '제공된 이미지는 의약품 상자 전면(제품명 식별용) 또는 의약품 뒷면/측면(성분표 및 설명)입니다. 이미지 분석 시 아래 규칙을 따르세요:\n' +
+           '1. 상자 전면 등 제품명이 명확히 보인다면 해당 제품명을 식별하여 전체 의약품 상세 정보를 채우세요.\n' +
+           '2. 제품명이 보이지 않거나 성분표(유효성분, 원료약품 및 분량 등) 중심의 사진이라면 기재된 성분명과 함량을 인식하고, 이를 기반으로 어떤 의약품(또는 복합제)인지 판정하여 소비자에게 설명할 수 있는 전체 의약품 정보를 구성하세요.\n' +
+           '3. 성분 정보만 보이고 특정 브랜드 제품명을 유추하기 힘들다면, 주성분을 가진 대표적인 의약품명(예: "아세트아미노펜 500mg" -> "타이레놀정 500mg" 등)을 임의로 선정하여 productName으로 설정하고 쉽고 친절하게 설명해 주세요.';
+  }
+  
+  let nmI = '';
+  if(name){
+    nmI = '검색어: "' + name + '"\n' +
+          '규칙:\n' +
+          '1. 검색어가 "아세트아미노펜", "이부프로펜", "덱시부프로펜", "라베프라졸" 등 성분명이나 화학적 활성물질 성분명인 경우, 해당 성분을 주성분으로 포함하는 대표적인 시판 일반의약품(OTC) 제품 목록을 candidates 리스트 형태로 응답해 사용자가 선택할 수 있도록 하세요. 예: {"candidates":[{"name":"타이레놀정 500mg","sub":"해열진통제 - 아세트아미노펜 500mg"},{"name":"타이레놀 8시간 이알서방정","sub":"해열진통제 - 아세트아미노펜 650mg"}]}.\n' +
+          '2. 검색어가 "타이레놀", "겔포스" 등 특정 브랜드 제품명인 경우, 해당 제품의 정확한 단일 상세 정보를 JSON으로 곧바로 반환하세요.\n' +
+          '3. 성분명으로 복수 후보를 제시할 때는 sub 항목에 해당 약의 대표 효능과 성분 함량을 짧게 적어주어 구별을 도우세요.';
+  }
+
+  return '당신은 약국 직원 교육 전문 AI입니다. 의약품을 일반 소비자(중학생도 이해 가능) 언어로 설명하세요.\n\n'+imgI+'\n'+nmI+'\n\nJSON 형식으로만 응답. 마크다운 없이.\n\n여러 제품 해당시(또는 성분명 검색으로 인해 관련 제품이 여럿인 경우):\n{"candidates":[{"name":"제품명","sub":"약효 및 성분 요약 설명"}]}\n\n단일 제품 확정시:\n{"productName":"제품명","category":"약효군","mainIngredient":"주성분 함량","useCases":["이럴 때1(30자이내,소비자언어)","이럴 때2","이럴 때3"],"symptoms":["손님표현1","표현2","표현3","표현4"],"staffMent":"직원 추천 멘트 1~2문장","cautions":["주의사항1","주의사항2","주의사항3"],"similar":["비슷제품1","제품2","제품3"]}\n\n규칙: useCases 약학용어 금지/symptoms 실제 손님 표현/광고 과장 금지/JSON만 반환';
 }
 
 function fileToB64(file){return new Promise((ok,err)=>{const r=new FileReader();r.onload=e=>ok(e.target.result.split(',')[1]);r.onerror=()=>err(new Error('파일 읽기 실패'));r.readAsDataURL(file)})}
