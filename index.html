@@ -703,13 +703,18 @@ const CATEGORIES = [
 
 // ═══════════════════════════════════════════════════
 //  모델 설정 및 순환 로직
+//  ※ 2026-06 기준: preview 모델(3-flash-preview)은 전세계
+//    공유 할당량(Dynamic Shared Quota)을 쓰기 때문에 개인
+//    사용량과 무관하게 글로벌 혼잡 시 429가 자주 발생함.
+//    또한 3.5-flash는 GA 모델이지만 단가가 높아 무료/저가
+//    키에서는 한도 도달이 빠름. → 저렴/안정 모델을 앞쪽에 배치.
 // ═══════════════════════════════════════════════════
 const MODELS = [
-  {id:'gemini-3.1-flash-lite', label:'3.1 Flash-Lite'},
-  {id:'gemini-2.5-flash-lite', label:'2.5 Flash-Lite'},
-  {id:'gemini-3-flash-preview',label:'3 Flash'},
-  {id:'gemini-2.5-flash',      label:'2.5 Flash'},
-  {id:'gemini-3.5-flash',      label:'3.5 Flash'}
+  {id:'gemini-3.1-flash-lite', label:'3.1 Flash-Lite'},   // GA, 가장 저렴·안정
+  {id:'gemini-2.5-flash-lite', label:'2.5 Flash-Lite'},   // GA, 저렴·안정
+  {id:'gemini-2.5-flash',      label:'2.5 Flash'},        // GA, 안정
+  {id:'gemini-3.5-flash',      label:'3.5 Flash'},        // GA, 고성능이나 단가 높음
+  {id:'gemini-3-flash-preview',label:'3 Flash(Preview)'}, // Preview, 전역 공유 할당량이라 막힘 잦음 → 최후순위
 ];
 
 // AQ로 시작하는 기본 Gemini API 키
@@ -1626,9 +1631,10 @@ async function callGemini(prompt,imgB64,imgMime,useSearch){
       
       if(!res.ok){
         const ed=await res.json().catch(()=>({}));
-        const msg=(ed&&ed.error&&ed.error.message)||'HTTP '+res.status;
-        lastError = new Error(msg);
-        
+        const msg=(ed&&ed.error&&ed.error.message)||('HTTP '+res.status);
+        lastError = new Error('['+m.label+'] '+res.status+' — '+msg);
+        console.warn(m.label+'('+m.id+') 실패: HTTP '+res.status+' — '+msg);
+
         // 실패 시 재시도 없이 즉시 실패 처리하고 다음 모델로 인덱스를 전환
         errSet.add(idx);
         nextModelIdx();
