@@ -225,7 +225,7 @@ body{font-family:-apple-system,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 .um-hnd{width:30px;height:4px;background:var(--g200);border-radius:2px;margin:0 auto 16px}
 .um-ttl{font-size:14px;font-weight:700;color:var(--g800);margin-bottom:13px}
-.um-area{border:2px dashed var(--g200);border-radius:var(--rad);padding:26px 16px;text-align:center;cursor:pointer;transition:border-color .15s;margin-bottom:12px}
+.um-area{border:2px dashed var(--g200);border-radius:var(--rad);padding:2px 16px;text-align:center;cursor:pointer;transition:border-color .15s;margin-bottom:12px}
 .um-area:hover{border-color:var(--p);background:var(--pl)}
 .um-ai{font-size:34px;margin-bottom:7px}
 .um-at{font-size:13px;color:var(--g500);font-weight:500}
@@ -828,7 +828,7 @@ const HARDCODED_PRODUCTS = {
       '아이 목감기가 심해져서 침을 흘려요',
       '영유아도 사용할 수 있는 순한 통증 치료제를 원해요'
     ],
-    staffMent: '만 6세 미만 어린 자녀들도 사용할 수 있도록 안전하게 설계된 순한 딸기향의 인후 스프레이입니다. 통증이 느껴지는 목 안쪽이나 헌 부위에 직접 칙칙 뿌려주시면 통증과 염증이 신속히 가라앉습니다.',
+    staffMent: '만 6세 미만 어린 자녀들도 사용할 수 있도록 안전하게 설계된 순한 딸기향 of 인후 스프레이입니다. 통증이 느껴지는 목 안쪽이나 헌 부위에 직접 칙칙 뿌려주시면 통증과 염증이 신속히 가라앉습니다.',
     cautions: [
       '만 6세 미만 소아는 사용 시 나이에 따른 권장 횟수를 패키지에서 확인 후 준수해 주세요',
       '얼굴 방향 분사 시 눈에 약이 들어가지 않도록 분사 노즐의 방향을 신중히 확인해 주세요',
@@ -1006,14 +1006,26 @@ function showResult(data){
   // ─── 일반 정상 제품 렌더링 ───
   addRecent(data.productName);renderFavs();
 
-  const isHealthFood = data.category && (data.category.includes('건강기능식품') || data.category.includes('건기식') || data.category.includes('영양제'));
+  const catStr = (data.category || '').toLowerCase();
+  const isHealthFood = catStr.includes('건강기능식품') || catStr.includes('건기식') || catStr.includes('영양제');
+  const isQuasiDrug = catStr.includes('의약외품') || catStr.includes('외품');
+  const isGeneralFood = catStr.includes('일반식품') || catStr.includes('식품') || catStr.includes('음료') || catStr.includes('기타식품') || catStr.includes('다류');
+
   document.getElementById('resBadge').textContent=data.category||'OTC 의약품';
   document.getElementById('resBadge').style.background = ''; // 기존 CSS 원복
   document.getElementById('resBadge').style.color = '';
 
   const ucTitleEl = document.getElementById('ucTitle');
   if (ucTitleEl) {
-    ucTitleEl.innerHTML = isHealthFood ? '<span>💡</span>이럴 때 추천하는 영양제' : '<span>💡</span>이럴 때 찾는 약';
+    if (isHealthFood) {
+      ucTitleEl.innerHTML = '<span>💡</span>이럴 때 추천하는 영양제';
+    } else if (isQuasiDrug) {
+      ucTitleEl.innerHTML = '<span>💡</span>이럴 때 사용하는 외품';
+    } else if (isGeneralFood) {
+      ucTitleEl.innerHTML = '<span>💡</span>이럴 때 섭취하는 식품';
+    } else {
+      ucTitleEl.innerHTML = '<span>💡</span>이럴 때 찾는 약';
+    }
   }
 
   document.getElementById('resName').textContent=data.productName;
@@ -1537,7 +1549,11 @@ async function callGemini(prompt,imgB64,imgMime){
         headers:{'Content-Type':'application/json','x-goog-api-key':ak},
         body:JSON.stringify({
           contents:[{role:'user',parts}],
-          generationConfig:{temperature:0.3,maxOutputTokens:2048}
+          generationConfig:{
+            temperature:0.3,
+            maxOutputTokens:2048,
+            responseMimeType: "application/json" // 강제 JSON 출력 모드 활성화로 파싱 에러 완전 격리!
+          }
         })
       });
       
@@ -1608,10 +1624,9 @@ async function analyzeProduct(name,file,mode){
       showCandidates(json.candidates);
       return;
     }
-    if(json.productName || json.notFound === true){
+    if(json.productName){
       // 글로벌 DB 캐시에 완벽 영구 보존
-      const saveKey = json.productName || name;
-      await saveProductCache(saveKey, json);
+      await saveProductCache(json.productName, json);
       showResult(json);
     } else {
       showError('분석 결과를 가져오지 못했습니다. 더 명확한 제품명이나 사진을 사용해주세요.');
@@ -1624,10 +1639,10 @@ async function analyzeProduct(name,file,mode){
 function buildPrompt(name,mode,hasImg){
   let imgI = '';
   if(hasImg){
-    imgI = '제공된 이미지는 의약품 상자 전면(제품명 식별용) 또는 의약품 뒷면/측면(성분표 및 설명)입니다. 이미지 분석 시 아래 규칙을 따르세요:\n' +
-           '1. 상자 전면 등 제품명이 명확히 보인다면해당 제품명을 식별하여 전체 의약품 상세 정보를 채우세요.\n' +
-           '2. 제품명이 보이지 않거나 성분표(유효성분, 원료약품 및 분량 등) 중심의 사진이라면 기재된 성분명과 함량을 인식하고, 이를 기반으로 어떤 의약품(또는 복합제)인지 판정하여 소비자에게 설명할 수 있는 전체 의약품 정보를 구성하세요.\n' +
-           '3. 성분 정보만 보이고 특정 브랜드 제품명을 유추하기 힘들다면, 주성분을 가진 대표적인 의약품명(예: "아세트아미노펜 500mg" -> "타이레놀정 500mg" 등)을 임의로 선정하여 productName으로 설정하고 쉽고 친절하게 설명해 주세요.';
+    imgI = '제공된 이미지는 의약품/건강기능식품/일반식품의 상자 전면(제품명 식별용) 또는 뒷면/측면(성분표 및 설명)입니다. 이미지 분석 시 아래 규칙을 따르세요:\n' +
+           '1. 상자 전면 등 제품명이 명확히 보인다면 해당 제품명을 식별하여 전체 정보를 채우세요.\n' +
+           '2. 제품명이 보이지 않거나 성분표(유효성분, 원료약품 및 분량 등) 중심의 사진이라면 기재된 성분명과 함량을 인식하고, 이를 기반으로 어떤 제품(또는 복합제/식품)인지 판정하여 소비자에게 설명할 수 있는 전체 정보를 구성하세요.\n' +
+           '3. 성분 정보만 보이고 특정 브랜드 제품명을 유추하기 힘들다면, 주성분을 가진 대표적인 제품명을 임의로 선정하여 productName으로 설정하고 쉽고 친절하게 설명해 주세요.';
   }
   
   let nmI = '';
@@ -1637,21 +1652,40 @@ function buildPrompt(name,mode,hasImg){
           '1. 검색어가 "아세트아미노펜", "이부프로펜", "덱시부프로펜", "라베프라졸" 등 성분명이나 화학적 활성물질 성분명인 경우, 해당 성분을 주성분으로 포함하는 대표적인 시판 일반의약품(OTC) 제품 목록을 candidates 리스트 형태로 응답해 사용자가 선택할 수 있도록 하세요. 예: {"candidates":[{"name":"타이레놀정 500mg","sub":"해열진통제 - 아세트아미노펜 500mg"},{"name":"타이레놀 8시간 이알서방정","sub":"해열진통제 - 아세트아미노펜 650mg"}]}.\n' +
           '2. 검색어가 "아세트아미노펜+카페인", "이부프로펜+파마브롬"과 같은 동시 복합 성분이거나, "은교산", "갈근탕", "길경", "감초" 같은 한약/한방/생약 성분 처방명인 경우에도 한국에 시판 중인 가장 대중적이고 매칭율 높은 대표 일반의약품 브랜드(예: 은교산 -> "아세파정", "원교캡슐" 등) 후보를 candidates 리스트로 도출하세요.\n' +
           '3. 건강기능식품(영양제) 원료(예: "루테인", "밀크씨슬", "오메가3", "유산균", "프로바이오틱스") 및 브랜드(예: "락토핏", "아임비타")일 경우에도 category 항목을 "건강기능식품 - [기능성/대상명]" (예: "건강기능식품 - 장 건강", "건강기능식품 - 피로회복") 형태로 정확히 분류하세요.\n' +
-          '4. 단일 브랜드 제품명인 경우, 해당 제품의 정확한 단일 상세 정보를 JSON으로 곧바로 반환하세요.';
+          '4. 일반식품 또는 음료(예: "광동쌍화", "비타500", "생강차")인 경우 category를 "일반식품 - 음료" 또는 "일반식품 - 다류" 형태로 명확하게 분류하세요.\n' +
+          '5. 의약외품(예: "박카스D", "박카스F", "가그린", "마스크")인 경우 category를 "의약외품 - [종류]" (예: "의약외품 - 자양강장제") 형태로 명확하게 분류하세요.\n' +
+          '6. 단일 브랜드 제품명인 경우, 해당 제품의 정확한 단일 상세 정보를 JSON으로 곧바로 반환하세요.';
   }
 
-  return '당신은 약국 직원 교육 전문 AI입니다. 의약품에 대한 모든 정보(성분 함량, 약효 분류, 허가 범위 내 임상 효능, 복약 주의사항 등)는 신뢰성 있는 대한민국 표준 포털인 **"약학정보원(KPIC)"의 정식 등재 정보 및 복약 지도 가이드라인**을 최우선 기준으로 채택해야 합니다. 허황된 내용이나 오발음으로 인한 타 제품과의 혼동(환각)을 철저하게 방지하십시오. 의약품 및 건강기능식품(영양제)을 일반 소비자(중학생도 이해 가능) 언어로 설명하세요.\n\n' +
-         '만약 대상 정보가 약학정보원(KPIC) 데이터베이스에 존재하지 않는 경우(최신 출시 의약품, 건강기능식품 등), 절대 임의로 상상한 가짜 정보를 기재하지 마십시오. 이때는 다음 순서대로 데이터를 교차 검증 및 보완하십시오:\n' +
+  return '당신은 약국 직원 교육 전문 AI입니다. 의약품, 의약외품, 건강기능식품(영양제), 일반식품을 일반 소비자(중학생도 이해 가능) 언어로 설명하세요.\n' +
+         '분석 시 반드시 대한민국 공식 의약품 포털인 **"약학정보원(KPIC)"의 정식 등재 정보 및 복약 지도 가이드라인**과 식약처 허가 기준 정보를 최우선 기준으로 채택해야 합니다. 허황된 내용이나 오발음으로 인한 타 제품과의 혼동(환각)을 철저하게 방지하십시오.\n\n' +
+         '★ 법적 및 식품표시광고법 준수 규칙 (매우 중요) ★\n' +
+         '1. 대상 제품이 **건강기능식품** 또는 **일반식품/음료**인 경우, 약국 직원이 손님에게 설명할 때 "질병의 치료나 예방에 효능이 있다"는 식의 의약품 오인 표현을 쓰면 법적 처벌을 받습니다.\n' +
+         '2. 따라서 건강기능식품/일반식품 분류일 때는, cautions(주의사항)에 반드시 "본 제품은 의약품이 아니므로 질병의 예방 및 치료 목적의 의약품이 아님을 손님께 고지하세요"라는 복약 경고를 첫 번째 항목으로 넣으십시오.\n' +
+         '3. 또한 staffMent(추천 멘트) 작성 시에도 치료 효과를 단정 짓지 말고 "영양 공급 및 건강 유지에 도움을 줄 수 있는 건강기능식품(또는 식품)"이라는 점을 친절하게 풀어서 설명하도록 멘트를 구성하십시오.\n\n' +
+         '만약 대상 정보가 공인 데이터베이스에 존재하지 않는 경우, 절대 임의로 상상한 가짜 정보를 기재하지 마십시오. 이때는 다음 순서대로 데이터를 교차 검증 및 보완하십시오:\n' +
          '1. 식품의약품안전처 "의약품안전나라" 공식 허가 공시 정보\n' +
          '2. 해당 제약사 공식 학술설명서(특히 건강기능식품은 식약처 영양 원료별 인정 고시 사항)\n' +
          '3. KMLE 의학전문포털 및 네이버 지식백과(의학 부문)\n\n' +
          '만약 위의 1~3단계 백업 소스를 전부 정밀 추적해 보아도 제품명에 부합하는 활성 성분이나 허가 정보가 전혀 확인되지 않는 경우(완전한 불법 유통 제품, 장난식 낙서 단어, 비의약 원료 등), 거짓 정보를 지어내지 말고 정확히 아래 형식의 JSON으로만 응답해야 합니다:\n' +
          '{"notFound": true, "productName": "' + (name || '입력 제품') + '", "message": "약학정보원, 식약처 및 공인 포털에서 성분 규격이 확인되지 않는 미분류 제품입니다."}\n\n' +
-         '출력 톤앤매너는 약학정보원의 공식 번역 및 대화 가이드를 따라 차분하고 쉬운 소비자 지향 언어로 일관되게 정제해 주세요.\n\n'+imgI+'\n'+nmI+'\n\nJSON 형식으로만 응답. 마크다운 없이.\n\n여러 제품 해당시(또는 복합성분/생약/한약/건기식 성분 검색으로 인해 관련 제품이 여럿인 경우):\n{"candidates":[{"name":"제품명","sub":"약효 및 성분 요약 설명"}]}\n\n단일 제품 확정시:\n{"productName":"제품명","category":"약효군 또는 건강기능식품 분류","mainIngredient":"주성분 함량/영양 정보","useCases":["이럴 때1(30자이내,소비자언어)","이럴 때2","이럴 때3"],"symptoms":["손님표현1","표현2","표현3","표현4"],"staffMent":"직원 추천 및 상담 멘트 1~2문장","cautions":["주의사항 및 섭취법1","주의사항2","주의사항3"],"similar":["비슷제품1","제품2","제품3"]}\n\n규칙: useCases 전문/약학용어 금지/symptoms 실제 손님 표현/광고 과장 금지/JSON만 반환';
+         '출력 톤앤매너는 약학정보원의 공식 번역 및 대화 가이드를 따라 차분하고 쉬운 소비자 지향 언어로 일관되게 정제해 주세요.\n\n'+imgI+'\n'+nmI+'\n\nJSON 형식으로만 응답. 마크다운 없이.\n\n여러 제품 해당시(또는 복합성분/생약/한약/건기식 성분 검색으로 인해 관련 제품이 여럿인 경우):\n{"candidates":[{"name":"제품명","sub":"약효 및 성분 요약 설명"}]}\n\n단일 제품 확정시:\n{"productName":"제품명","category":"약효군 또는 건강기능식품/의약외품/일반식품 분류","mainIngredient":"주성분 함량/영양 정보","useCases":["이럴 때1(30자이내,소비자언어)","이럴 때2","이럴 때3"],"symptoms":["손님표현1","표현2","표현3","표현4"],"staffMent":"직원 추천 및 상담 멘트 1~2문장","cautions":["주의사항 및 섭취법1","주의사항2","주의사항3"],"similar":["비슷제품1","제품2","제품3"]}\n\n규칙: useCases 전문/약학용어 금지/symptoms 실제 손님 표현/광고 과장 금지/JSON만 반환';
 }
 
 function fileToB64(file){return new Promise((ok,err)=>{const r=new FileReader();r.onload=e=>ok(e.target.result.split(',')[1]);r.onerror=()=>err(new Error('파일 읽기 실패'));r.readAsDataURL(file)})}
-function extractJson(t){let c=t.replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();const s=c.indexOf('{'),e=c.lastIndexOf('}');if(s<0||e<0)return null;try{return JSON.parse(c.slice(s,e+1))}catch{return null}}
+
+function extractJson(t){
+  let cleaned = t.trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch(err) {
+    let c=t.replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
+    const startIdx=c.indexOf('{'), endIdx=c.lastIndexOf('}');
+    if(startIdx<0||endIdx<0)return null;
+    try{return JSON.parse(c.slice(startIdx,endIdx+1))}catch{return null}
+  }
+}
+
 function esc(s){return(s||'').replace(/'/g,"&#39;")}
 
 // ═══════════════════════════════════════════════════
