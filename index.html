@@ -703,18 +703,13 @@ const CATEGORIES = [
 
 // ═══════════════════════════════════════════════════
 //  모델 설정 및 순환 로직
-//  ※ 2026-06 기준: preview 모델(3-flash-preview)은 전세계
-//    공유 할당량(Dynamic Shared Quota)을 쓰기 때문에 개인
-//    사용량과 무관하게 글로벌 혼잡 시 429가 자주 발생함.
-//    또한 3.5-flash는 GA 모델이지만 단가가 높아 무료/저가
-//    키에서는 한도 도달이 빠름. → 저렴/안정 모델을 앞쪽에 배치.
 // ═══════════════════════════════════════════════════
 const MODELS = [
-  {id:'gemini-3.1-flash-lite', label:'3.1 Flash-Lite'},   // GA, 가장 저렴·안정
-  {id:'gemini-2.5-flash-lite', label:'2.5 Flash-Lite'},   // GA, 저렴·안정
-  {id:'gemini-2.5-flash',      label:'2.5 Flash'},        // GA, 안정
-  {id:'gemini-3.5-flash',      label:'3.5 Flash'},        // GA, 고성능이나 단가 높음
-  {id:'gemini-3-flash-preview',label:'3 Flash(Preview)'}, // Preview, 전역 공유 할당량이라 막힘 잦음 → 최후순위
+  {id:'gemini-3.1-flash-lite', label:'3.1 Flash-Lite'},
+  {id:'gemini-2.5-flash-lite', label:'2.5 Flash-Lite'},
+  {id:'gemini-3-flash-preview',label:'3 Flash'},
+  {id:'gemini-2.5-flash',      label:'2.5 Flash'},
+  {id:'gemini-3.5-flash',      label:'3.5 Flash'}
 ];
 
 // AQ로 시작하는 기본 Gemini API 키
@@ -1599,9 +1594,23 @@ async function callGemini(prompt,imgB64,imgMime,useSearch){
   const si=getModelIdx(),errSet=new Set();
   let lastError = null;
   
+  // 만약 실시간 구글 검색(Grounding)이 활성화된 경우, 
+  // 도구(Tools) 호환성이 입증된 안정적인 'gemini-2.5-flash' 모델을 강제로 사용하도록 구성합니다.
+  // 프리뷰 모델들(3.x 등)은 도구 지원이 불안정하여 400 Bad Request를 유발하기 때문입니다.
+  let modelsToTry = [...MODELS];
+  if (useSearch === true) {
+    const stableIdx = MODELS.findIndex(m => m.id === 'gemini-2.5-flash');
+    if (stableIdx !== -1) {
+      modelsToTry = [MODELS[stableIdx], ...MODELS.filter((_, idx) => idx !== stableIdx)];
+    }
+  }
+  
   // 5개 모델이 순서대로 돌아가면서 순환 처리 (재시도 로직 완전 삭제 및 즉각적인 모델 전환 적용)
-  for(let a=0;a<MODELS.length;a++){
-    const idx=(si+a)%MODELS.length,m=MODELS[idx];
+  for(let a=0;a<modelsToTry.length;a++){
+    const m = modelsToTry[a];
+    const originalIdx = MODELS.findIndex(om => om.id === m.id);
+    const idx = originalIdx !== -1 ? originalIdx : si;
+    
     updateModelBar(idx,errSet);
     document.getElementById('ldMdl').textContent='🤖 '+m.label+' 사용 중';
     const parts=[];
@@ -1613,13 +1622,18 @@ async function callGemini(prompt,imgB64,imgMime,useSearch){
         contents:[{role:'user',parts}],
         generationConfig:{
           temperature:0.3,
-          maxOutputTokens:2048,
-          responseMimeType: "application/json" // 강제 JSON 출력 모드 활성화로 파싱 에러 완전 격리!
+          maxOutputTokens:2048
         }
       };
 
-      // 구글 실시간 검색 그라운딩 도구 적용 활성화
-      if (useSearch === true) {
+      // JSON 모드 안정성 확보: gemini-2.5-flash만 JSON 스키마를 강제하고, 나머지는 일반 텍스트로 받아 파싱
+      // 3.x 프리뷰 모델들은 json 모드를 강제하면 400 Bad Request를 내뿜으므로 일반 텍스트 수신 후 extractJson 파싱합니다.
+      if (m.id === 'gemini-2.5-flash') {
+        payload.generationConfig.responseMimeType = "application/json";
+      }
+
+      // 구글 실시간 검색 그라운딩 도구 적용 활성화 (지원 모델인 gemini-2.5-flash에서만 실행하여 3.x 계열 충돌 방지)
+      if (useSearch === true && m.id === 'gemini-2.5-flash') {
         payload.tools = [{"google_search": {}}];
       }
 
@@ -1631,10 +1645,9 @@ async function callGemini(prompt,imgB64,imgMime,useSearch){
       
       if(!res.ok){
         const ed=await res.json().catch(()=>({}));
-        const msg=(ed&&ed.error&&ed.error.message)||('HTTP '+res.status);
-        lastError = new Error('['+m.label+'] '+res.status+' — '+msg);
-        console.warn(m.label+'('+m.id+') 실패: HTTP '+res.status+' — '+msg);
-
+        const msg=(ed&&ed.error&&ed.error.message)||'HTTP '+res.status;
+        lastError = new Error(msg);
+        
         // 실패 시 재시도 없이 즉시 실패 처리하고 다음 모델로 인덱스를 전환
         errSet.add(idx);
         nextModelIdx();
